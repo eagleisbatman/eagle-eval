@@ -1,0 +1,35 @@
+{
+  "input": {
+    "language": "en",
+    "conversation_turns": [
+      {
+        "role": "user",
+        "content": "My maize leaves have yellow spots. What should I do?"
+      }
+    ]
+  },
+  "output": {
+    "responses": [
+      "Which crop stage is the maize in, and are the spots powdery or dry?"
+    ]
+  },
+  "expected_output": {
+    "expected_language": "en",
+    "expected_topics": [
+      "crop_disease"
+    ],
+    "scenario": "missing_critical_context",
+    "expected_next_action": "ask_clarification",
+    "required_clarification_slots": [
+      "crop stage",
+      "symptom"
+    ],
+    "resolution_goal": "Ask for minimum missing context before giving crop disease advice."
+  },
+  "metadata": {
+    "language": "en",
+    "language_name": "English",
+    "scenario": "missing_critical_context",
+    "expected_next_action": "ask_clarification"
+  }
+}

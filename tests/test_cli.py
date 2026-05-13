@@ -238,3 +238,54 @@ def test_custom_metric_receives_app_context(tmp_path):
         assert result.name == "farmer_query_resolution"
         assert result.value == 0.9
         assert result.comment == "Agriculture advisory assistant"
+
+
+def test_scorer_init_creates_template_and_sample(tmp_path):
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(cli, ["scorer", "init", "farmer_query_resolution", "--sample"])
+
+        assert result.exit_code == 0, result.output
+        scorer_path = Path("eval_scorers/farmer_query_resolution.py")
+        sample_path = Path("examples/scorer_sample.json")
+        assert scorer_path.exists()
+        assert sample_path.exists()
+        assert "def score(" in scorer_path.read_text()
+        assert "farmer_query_resolution" in result.output
+
+
+def test_scorer_list_shows_templates_and_configured_metrics(tmp_path):
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        write_config(Path("eval_config.yaml"))
+
+        result = runner.invoke(cli, ["scorer", "list"])
+
+        assert result.exit_code == 0, result.output
+        assert "No custom metrics configured" in result.output
+        assert "farmer_query_resolution" in result.output
+        assert "safe_actionability" in result.output
+
+
+def test_scorer_test_runs_template_metric(tmp_path):
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        write_config(Path("eval_config.yaml"))
+        init_result = runner.invoke(cli, ["scorer", "init", "farmer_query_resolution", "--sample"])
+        assert init_result.exit_code == 0, init_result.output
+
+        result = runner.invoke(
+            cli,
+            [
+                "scorer",
+                "test",
+                "farmer_query_resolution",
+                "--sample",
+                "examples/scorer_sample.json",
+            ],
+        )
+
+        assert result.exit_code == 0, result.output
+        assert "Scorer Test" in result.output
+        assert "farmer_query_resolution" in result.output
+        assert "Score:   1.000" in result.output

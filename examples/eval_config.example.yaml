@@ -69,9 +69,9 @@ scoring:
   regression_threshold: 0.05
   custom_metrics:
     # Create this in your own project, not inside Eagle Eval:
-    # eval_scorers/farmer_resolution.py with score(input, output, expected_output, metadata, context, metric)
+    # eval_scorers/farmer_query_resolution.py with score(input, output, expected_output, metadata, context, metric)
     - name: farmer_query_resolution
-      path: eval_scorers.farmer_resolution:score
+      path: eval_scorers.farmer_query_resolution:score
       weight: 0.45
       required: true
       enabled: false

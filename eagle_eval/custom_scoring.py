@@ -29,6 +29,20 @@ def load_custom_evaluators(config: dict, project_dir: Path) -> list[Callable[...
     return evaluators
 
 
+def load_custom_evaluator(config: dict, project_dir: Path, name: str) -> Callable[..., Evaluation]:
+    """Load one custom item evaluator by metric name."""
+    for metric in _custom_metrics(config):
+        if metric["name"] == name:
+            scorer_fn = _load_callable(metric["path"], project_dir)
+            return _wrap_metric(metric, scorer_fn, config.get("app_context", {}))
+    raise KeyError(f"Custom metric not found in scoring.custom_metrics: {name}")
+
+
+def configured_custom_metrics(config: dict) -> list[dict]:
+    """Return enabled and disabled custom metric declarations."""
+    return list(config.get("scoring", {}).get("custom_metrics") or [])
+
+
 def check_custom_metrics(config: dict, project_dir: Path) -> list[CustomMetricStatus]:
     """Return import readiness for custom metrics without raising."""
     statuses = []
@@ -57,11 +71,28 @@ def _load_callable(path: str, project_dir: Path) -> Callable[..., Any]:
     if project_path not in sys.path:
         sys.path.insert(0, project_path)
 
+    importlib.invalidate_caches()
+    _remove_stale_project_modules(module_name, project_path)
     module = importlib.import_module(module_name)
     scorer_fn = getattr(module, function_name)
     if not callable(scorer_fn):
         raise TypeError(f"Custom metric is not callable: {path}")
     return scorer_fn
+
+
+def _remove_stale_project_modules(module_name: str, project_path: str) -> None:
+    package_name = module_name.split(".", 1)[0]
+    package = sys.modules.get(package_name)
+    if package is None:
+        return
+
+    package_paths = [str(Path(path).resolve()) for path in getattr(package, "__path__", [])]
+    if any(path.startswith(project_path) for path in package_paths):
+        return
+
+    for loaded_name in list(sys.modules):
+        if loaded_name == package_name or loaded_name.startswith(f"{package_name}."):
+            del sys.modules[loaded_name]
 
 
 def _wrap_metric(metric: dict, scorer_fn: Callable[..., Any], app_context: dict) -> Callable[..., Evaluation]:

@@ -93,7 +93,7 @@ scoring:
   scorer_model: gemini-3.1-pro
   custom_metrics:
     - name: farmer_query_resolution
-      path: eval_scorers.farmer_resolution:score
+      path: eval_scorers.farmer_query_resolution:score
       weight: 0.45
       required: true
 ```
@@ -101,7 +101,7 @@ scoring:
 Then create the scorer in the evaluated project:
 
 ```python
-# eval_scorers/farmer_resolution.py
+# eval_scorers/farmer_query_resolution.py
 
 def score(input, output, expected_output, metadata, context):
     responses = output.get("responses", [])
@@ -122,6 +122,23 @@ def score(input, output, expected_output, metadata, context):
 ```
 
 A custom scorer receives `input`, `output`, `expected_output`, `metadata`, and `context`. It can return a number, boolean, `{"value": ..., "comment": ...}`, or an `Evaluation` object.
+
+The CLI can create and test scorer files:
+
+```bash
+eagle-eval scorer list
+eagle-eval scorer init farmer_query_resolution --sample
+eagle-eval scorer test farmer_query_resolution --sample examples/scorer_sample.json
+```
+
+`scorer test` can run immediately after `scorer init`; add the metric to `eval_config.yaml` when you want it included in full eval runs.
+
+Available starter templates:
+
+- `farmer_query_resolution`
+- `clarification_quality`
+- `safe_actionability`
+- `resolved_after_clarification`
 
 ## Install
 
@@ -203,6 +220,8 @@ eagle-eval run --languages tier1
 eagle-eval compare \
   --baseline '{"router":13}' \
   --candidate '{"router":14}'
+eagle-eval context view
+eagle-eval scorer list
 eagle-eval status
 ```
 
@@ -227,7 +246,7 @@ scoring:
   scorer_model: gemini-3.1-pro
   custom_metrics:
     - name: farmer_query_resolution
-      path: eval_scorers.farmer_resolution:score
+      path: eval_scorers.farmer_query_resolution:score
 
 results:
   destination: langfuse

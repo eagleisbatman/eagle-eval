@@ -630,6 +630,115 @@ def context_view(json_output):
             _log(f"    - {scenario}: {expectation}")
 
 
+# ─── scorer ─────────────────────────────────────────────────────────────────
+
+@cli.group("scorer")
+def scorer_group():
+    """Create, list, and test custom scorers."""
+
+
+@scorer_group.command("list")
+def scorer_list():
+    """List configured custom scorers and built-in templates."""
+    config = _load_optional_config()
+    from eagle_eval.custom_scoring import configured_custom_metrics, check_custom_metrics
+    from eagle_eval.scorer_templates import SCORER_TEMPLATES
+
+    _heading("Custom Scorers")
+    metrics = configured_custom_metrics(config)
+    if metrics:
+        statuses = {status.name: status for status in check_custom_metrics(config, _project_dir())}
+        for metric in metrics:
+            name = metric["name"]
+            enabled = metric.get("enabled", True)
+            status = statuses.get(name)
+            suffix = "disabled" if not enabled else ("ready" if status and status.ok else "not importable")
+            _log(f"  - {name}: {metric['path']} ({suffix})")
+    else:
+        _warn("No custom metrics configured in scoring.custom_metrics.")
+
+    _log("\n  Templates:")
+    for name, template in SCORER_TEMPLATES.items():
+        _log(f"    - {name}: {template['description']}")
+
+
+@scorer_group.command("init")
+@click.argument("name")
+@click.option("--force", is_flag=True, help="Overwrite an existing scorer file")
+@click.option("--sample", is_flag=True, help="Also write a sample scorer input JSON")
+def scorer_init(name, force, sample):
+    """Create a developer-owned scorer template."""
+    from eagle_eval.scorer_templates import SCORER_TEMPLATES, write_sample_case, write_scorer_template
+
+    if name not in SCORER_TEMPLATES:
+        valid = ", ".join(sorted(SCORER_TEMPLATES))
+        raise click.ClickException(f"Unknown scorer template '{name}'. Available: {valid}")
+
+    _heading("Create Custom Scorer")
+    try:
+        path = write_scorer_template(name, _project_dir(), force=force)
+    except FileExistsError as exc:
+        raise click.ClickException(f"{exc} already exists. Use --force to overwrite.") from exc
+
+    _ok(f"Created {path.relative_to(_project_dir())}")
+    _log("\n  Add this to eval_config.yaml under scoring.custom_metrics:")
+    _log("    - name: " + name)
+    _log("      path: " + SCORER_TEMPLATES[name]["path"])
+    _log("      weight: 0.45")
+    _log("      required: true")
+
+    if sample:
+        sample_path = write_sample_case(_project_dir() / "examples" / "scorer_sample.json")
+        _ok(f"Created {sample_path.relative_to(_project_dir())}")
+
+
+@scorer_group.command("test")
+@click.argument("name")
+@click.option("--sample", "sample_path", type=click.Path(dir_okay=False, path_type=Path), default=None, help="JSON file with input/output/expected_output/metadata")
+def scorer_test(name, sample_path):
+    """Run one custom scorer locally against a sample JSON payload."""
+    config = _load_config()
+    from eagle_eval.custom_scoring import configured_custom_metrics, load_custom_evaluator
+    from eagle_eval.scorer_templates import SCORER_TEMPLATES, sample_case
+
+    if sample_path:
+        payload = json.loads(Path(sample_path).read_text(encoding="utf-8"))
+    else:
+        payload = sample_case(name)
+
+    try:
+        evaluator = load_custom_evaluator(config, _project_dir(), name)
+    except KeyError:
+        metric = next(
+            (candidate for candidate in configured_custom_metrics(config) if candidate["name"] == name),
+            None,
+        )
+        if metric is None and name in SCORER_TEMPLATES:
+            metric = {"name": name, "path": SCORER_TEMPLATES[name]["path"]}
+        if metric is None:
+            raise
+        test_config = {
+            **config,
+            "scoring": {
+                **config["scoring"],
+                "custom_metrics": [{**metric, "enabled": True}],
+            },
+        }
+        evaluator = load_custom_evaluator(test_config, _project_dir(), name)
+    result = evaluator(
+        input=payload.get("input", {}),
+        output=payload.get("output", {}),
+        expected_output=payload.get("expected_output", {}),
+        metadata=payload.get("metadata", {}),
+    )
+
+    _heading("Scorer Test")
+    _log(f"  Name:    {result.name}")
+    _log(f"  Score:   {result.value:.3f}")
+    if result.comment:
+        _log(f"  Comment: {result.comment}")
+
+
 # ─── install-assistants ─────────────────────────────────────────────────────
 
 @cli.command("install-assistants")

@@ -19,6 +19,9 @@ eagle-eval upload
 eagle-eval run --languages tier1
 eagle-eval compare --baseline '{"router":13}' --candidate '{"router":14}'
 eagle-eval context view
+eagle-eval scorer list
+eagle-eval scorer init farmer_query_resolution --sample
+eagle-eval scorer test farmer_query_resolution --sample examples/scorer_sample.json
 eagle-eval status
 eagle-eval install-assistants --tool all --yes
 eagle-eval update --dry-run

@@ -58,6 +58,12 @@ Use Eagle Eval when the user asks to create, check, run, compare, or explain age
 4. `eagle-eval run --languages tier1` runs the real agent and scores outputs.
 5. `eagle-eval compare --baseline '{...}' --candidate '{...}'` catches regressions.
 
+## Custom Scorers
+
+- `eagle-eval scorer list` shows configured metrics and starter templates.
+- `eagle-eval scorer init farmer_query_resolution --sample` creates a project-owned scorer.
+- `eagle-eval scorer test farmer_query_resolution --sample examples/scorer_sample.json` runs the scorer locally.
+
 ## Product Vocabulary
 
 - Test-case writer: the model service that creates eval conversations.
@@ -106,6 +112,9 @@ Workflow:
 Commands:
 - `eagle-eval doctor`
 - `eagle-eval context view`
+- `eagle-eval scorer list`
+- `eagle-eval scorer init farmer_query_resolution --sample`
+- `eagle-eval scorer test farmer_query_resolution --sample examples/scorer_sample.json`
 - `eagle-eval generate --languages tier1`
 - `eagle-eval gate`
 - `eagle-eval upload`
