@@ -17,6 +17,20 @@ def run_experiment(config: dict, lang_codes: list[str], prompt_versions: dict,
         logging.basicConfig(level=logging.DEBUG)
 
     destination = str(config.get("results", {}).get("destination", "langfuse")).strip().lower()
+    project_dir = project_dir or Path.cwd()
+    if destination == "local":
+        from eagle_eval.local_results import run_local_experiment
+
+        return run_local_experiment(
+            config=config,
+            lang_codes=lang_codes,
+            prompt_versions=prompt_versions,
+            concurrency=concurrency,
+            project_dir=project_dir,
+            run_prefix=run_prefix,
+            verbose=verbose,
+        )
+
     if destination != "langfuse":
         raise RuntimeError(
             f"Live experiment runs currently support Langfuse. Configured result destination: {destination}. "
@@ -34,7 +48,6 @@ def run_experiment(config: dict, lang_codes: list[str], prompt_versions: dict,
     from eagle_eval.evaluators import get_item_evaluators, configure as configure_evaluators
 
     lf = get_client()
-    project_dir = project_dir or Path.cwd()
     prefix = config.get("langfuse", {}).get("dataset_prefix", "evals")
     agent_module = config["agent"]["module"]
     agent_function = config["agent"]["function"]

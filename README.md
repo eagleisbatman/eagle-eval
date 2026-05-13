@@ -1,8 +1,8 @@
 # Eagle Eval
 
-Eagle Eval is a local-first CLI for evaluating agentic AI applications. It creates realistic multilingual test cases, checks test-case quality, runs your real agent, scores the agent's answers, and keeps the results in the workspace you choose.
+Eagle Eval is a local-first CLI for evaluating agentic AI applications. It creates realistic multilingual test cases, checks test-case quality, runs your real agent, scores the agent's answers, and writes inspectable results you can use immediately.
 
-The product is Eagle Eval. Langfuse is currently the first live result destination; LangSmith, OpenAI Evals, Gemini / Vertex AI evaluation, and Claude workflows are active design targets.
+The product is Eagle Eval. Local JSON and Markdown reports are the default. Langfuse is the first hosted results service; LangSmith, OpenAI Evals, Gemini / Vertex AI evaluation, and Claude workflows are active design targets.
 
 ## What You Get
 
@@ -10,7 +10,7 @@ After a complete eval run, you should have:
 
 - generated test cases in `data/synthetic/`
 - `quality_report.json` showing which generated cases are good enough to use
-- a stored dataset of passing test cases
+- a stored dataset of passing test cases, either locally or in the configured service
 - scored agent runs broken down by language and metric
 - a compare result that tells you whether a prompt/model change regressed
 - enough trace/run context to debug why the agent failed
@@ -23,7 +23,7 @@ This is the mental model used across the major eval tools: Langfuse describes ev
 | --- | --- | --- |
 | Test-case writer | The model service that writes realistic user conversations for your domain and languages. | Gemini by default; OpenAI or Claude for narrower language sets or adversarial case writing. |
 | Scorer | The code or stronger model that grades your agent's answers. | Deterministic checks plus Gemini, OpenAI, or Claude. Use a stronger model than the agent when possible. |
-| Result destination | The place where datasets, runs, traces, and scores are stored and reviewed. | Langfuse now; LangSmith, OpenAI Evals, Gemini / Vertex AI evaluation, and Claude workflows are being prepared. |
+| Result destination | Where Eagle Eval stores datasets, run output, score summaries, and debug context. | Local files by default; Langfuse for hosted review; LangSmith, OpenAI Evals, Gemini / Vertex AI evaluation, and Claude workflows are being prepared. |
 
 Gemini remains the default for broad multilingual case writing and scoring. OpenAI and Claude are valid choices when their language coverage fits the eval set or when you want a second opinion from a different model family.
 
@@ -47,6 +47,8 @@ Agent-run scores measure the actual agent output:
 - `safety_check`: 0 or 1, model-scored
 - `response_quality`: 0 to 1, model-scored
 - `pass_rate`: 0 to 1 aggregate
+
+Local runs use deterministic built-ins and custom scorers by default. Set `results.local.include_model_scorers: true` when you want local runs to call the configured Gemini, OpenAI, or Claude scorer model for model-judged metrics.
 
 OpenAI's grader guidance also uses 0 to 1 grades, Langfuse supports numeric, categorical, boolean, and text scores, LangSmith evaluator feedback contains a metric key plus score/value and optional comment, Vertex AI supports model-based and computation-based metrics, and Claude recommends code-based, human, and LLM-based grading depending on reliability needs.
 
@@ -144,7 +146,7 @@ Available starter templates:
 
 ```bash
 cd eagle-eval
-python -m pip install -e ".[dev,langfuse,gemini]"
+python -m pip install -e ".[dev,gemini]"
 ```
 
 Install every planned SDK check:
@@ -192,13 +194,13 @@ Start from the example config if you do not want the prompt flow:
 cp examples/eval_config.example.yaml eval_config.yaml
 ```
 
-Use `doctor` before live runs:
+Use `doctor` before live or provider-backed runs:
 
 ```bash
 eagle-eval doctor --verbose
 ```
 
-Set only the keys for the services you use:
+Local result files do not require service keys. Set only the keys for the services you use:
 
 ```bash
 export GOOGLE_API_KEY="..."
@@ -227,6 +229,33 @@ eagle-eval status
 
 All commands support `--help`, `--dry-run`, and `--verbose`. Use `--project-dir /path/to/project` when the installed CLI should read or write a specific eval workspace instead of the current directory.
 
+## Local Results
+
+Local mode is the default so a developer can generate, run, inspect, and debug an eval before connecting Langfuse or any other hosted service.
+
+```yaml
+results:
+  destination: local
+  local:
+    directory: data/results
+    include_model_scorers: false
+```
+
+`eagle-eval upload` writes passing generated conversations into `data/results/datasets/*.json`. `eagle-eval run` can read those dataset files, run the configured agent, score every item, and write:
+
+- `data/results/runs/<run-name>.json` with full inputs, outputs, scores, comments, and metadata
+- `data/results/runs/<run-name>.md` with a human-readable score summary and per-item notes
+
+`eagle-eval status` shows local dataset counts and the latest local run. This makes the default loop useful without Langfuse credentials:
+
+```bash
+eagle-eval generate --languages en
+eagle-eval gate
+eagle-eval upload --languages en
+eagle-eval run --languages en
+eagle-eval status
+```
+
 ## Config Shape
 
 ```yaml
@@ -249,7 +278,10 @@ scoring:
       path: eval_scorers.farmer_query_resolution:score
 
 results:
-  destination: langfuse
+  destination: local
+  local:
+    directory: data/results
+    include_model_scorers: false
 ```
 
 Your agent can use one model, the test-case writer can use another, and the scorer should usually be stronger than the agent model.

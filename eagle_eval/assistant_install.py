@@ -54,7 +54,7 @@ Use Eagle Eval when the user asks to create, check, run, compare, or explain age
 
 1. `eagle-eval generate --languages tier1` writes multilingual user test cases.
 2. `eagle-eval gate` checks those cases and adds quality status.
-3. `eagle-eval upload` sends passing cases to the configured result destination.
+3. `eagle-eval upload` stores passing cases in the configured result destination.
 4. `eagle-eval run --languages tier1` runs the real agent and scores outputs.
 5. `eagle-eval compare --baseline '{...}' --candidate '{...}'` catches regressions.
 
@@ -68,7 +68,7 @@ Use Eagle Eval when the user asks to create, check, run, compare, or explain age
 
 - Test-case writer: the model service that creates eval conversations.
 - Scorer: the model service or deterministic code that grades agent outputs.
-- Result destination: the product workspace where datasets, runs, traces, and scores are stored.
+- Result destination: where datasets, run output, score summaries, and debug context are stored. Local files are the default.
 - App context: the app use case, user, North Star, and resolution policy that make scoring domain-specific.
 - Custom metric: a developer-owned `module:function` scorer listed in `scoring.custom_metrics`.
 """
@@ -85,7 +85,7 @@ Run `/eagle-eval` in Claude Code for the project workflow. Use `eagle-eval docto
 Key terms:
 - Test-case writer: creates realistic multilingual eval cases.
 - Scorer: grades the agent output using code checks or a stronger model.
-- Result destination: stores datasets, experiment runs, traces, and scores.
+- Result destination: stores datasets, run output, score summaries, and debug context. Local files are the default.
 - App context: defines the product use case and North Star so scoring is not generic.
 - Custom metric: a developer-owned scorer declared in `scoring.custom_metrics`.
 

@@ -77,7 +77,10 @@ scoring:
       enabled: false
 
 results:
-  destination: langfuse
+  destination: local
+  local:
+    directory: data/results
+    include_model_scorers: false
 
 langfuse:
   dataset_prefix: evals

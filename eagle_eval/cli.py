@@ -138,7 +138,7 @@ def init(dry_run, verbose):
     writer_model = click.prompt("  Test-case writer model", default="gemini-2.0-flash")
     scorer = click.prompt("  Scoring service", default="gemini")
     scorer_model = click.prompt("  Scoring model", default="gemini-3.1-pro")
-    result_destination = click.prompt("  Result destination", default="langfuse")
+    result_destination = click.prompt("  Result destination", default="local")
 
     convs_per_lang = click.prompt("  Conversations per language", default=10, type=int)
     turns_per_conv = click.prompt("  Turns per conversation", default=10, type=int)
@@ -210,6 +210,10 @@ def init(dry_run, verbose):
         },
         "results": {
             "destination": result_destination,
+            "local": {
+                "directory": "data/results",
+                "include_model_scorers": False,
+            },
         },
         "langfuse": {
             "dataset_prefix": "evals",
@@ -400,6 +404,7 @@ def run(languages, prompt_versions, max_concurrency, dry_run, verbose):
 
     _heading("Results")
     _print_results_table(results)
+    _print_local_result_paths(results)
 
 
 # ─── compare ────────────────────────────────────────────────────────────────
@@ -486,6 +491,8 @@ def status(dry_run, verbose):
 
     if dry_run:
         _warn("Dry run — skipped result-destination connection")
+    elif destination == "local":
+        _print_local_status(_project_dir(), config)
     elif destination != "langfuse":
         _warn(f"Live status currently supports Langfuse. Configured result destination: {destination}")
         _log("  Run 'eagle-eval doctor --verbose' to inspect SDK readiness.")
@@ -596,6 +603,9 @@ def doctor(verbose):
     _log("    - quality_report.json showing which test cases are ready")
     _log("    - scored agent runs with per-language metrics")
     _log("    - a regression decision when comparing prompt/model versions")
+    if config and str(config.get("results", {}).get("destination", "")).strip().lower() == "local":
+        local_dir = config.get("results", {}).get("local", {}).get("directory", "data/results")
+        _log(f"    - local JSON and Markdown reports under {local_dir}/runs/")
 
 
 # ─── context ────────────────────────────────────────────────────────────────
@@ -906,6 +916,43 @@ def _print_results_table(results):
             rows.append([lang, metric, f"{value:.3f}"])
 
     _log(tabulate(rows, headers=["Language", "Metric", "Score"], tablefmt="rounded_grid"))
+
+
+def _print_local_result_paths(results):
+    local_results = results.get("local_results")
+    if not local_results:
+        return
+    _log("\n  Local reports:")
+    _ok(f"JSON: {local_results['json']}")
+    _ok(f"Markdown: {local_results['markdown']}")
+    _log(f"  Items scored: {local_results['items']}")
+
+
+def _print_local_status(project_dir: Path, config: dict):
+    from eagle_eval.local_results import local_results_dir
+
+    results_dir = local_results_dir(config, project_dir)
+    datasets_dir = results_dir / "datasets"
+    runs_dir = results_dir / "runs"
+    if datasets_dir.exists():
+        datasets = sorted(datasets_dir.glob("*.json"))
+        _ok(f"Local datasets: {len(datasets)} file(s)")
+        for dataset in datasets:
+            try:
+                count = len(json.loads(dataset.read_text(encoding="utf-8")))
+            except (json.JSONDecodeError, OSError):
+                count = 0
+            _log(f"    {dataset}: {count} items")
+    else:
+        _warn("No local datasets. Run 'eagle-eval upload' or run directly from generated data.")
+
+    if runs_dir.exists():
+        runs = sorted(runs_dir.glob("*.json"))
+        _ok(f"Local runs: {len(runs)} JSON report(s)")
+        if runs:
+            _log(f"    Latest: {runs[-1]}")
+    else:
+        _warn("No local runs. Run 'eagle-eval run --languages tier1'.")
 
 
 def _print_comparison_table(baseline_results, candidate_results, threshold):

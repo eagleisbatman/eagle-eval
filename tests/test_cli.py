@@ -6,7 +6,7 @@ from click.testing import CliRunner
 from eagle_eval.cli import cli
 
 
-def write_config(path: Path, language_count: int = 3):
+def write_config(path: Path, language_count: int = 3, destination: str = "local"):
     path.write_text(
         "\n".join(
             [
@@ -52,7 +52,10 @@ def write_config(path: Path, language_count: int = 3):
                 "  item_timeout_seconds: 120",
                 "  regression_threshold: 0.05",
                 "results:",
-                "  destination: langfuse",
+                f"  destination: {destination}",
+                "  local:",
+                "    directory: data/results",
+                "    include_model_scorers: false",
                 "langfuse:",
                 "  dataset_prefix: evals",
                 "",
@@ -71,6 +74,17 @@ def test_run_dry_run_uses_current_directory_config(tmp_path):
         assert result.exit_code == 0, result.output
         assert "Agent: tests.fake_agent.run_conversation" in result.output
         assert "Dry run" in result.output
+
+
+def test_init_dry_run_defaults_to_local_results(tmp_path):
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(cli, ["init", "--dry-run"], input="\n" * 40)
+
+        assert result.exit_code == 0, result.output
+        assert "destination: local" in result.output
+        assert "directory: data/results" in result.output
+        assert "include_model_scorers: false" in result.output
 
 
 def test_gate_dry_run_does_not_mutate_conversations_or_write_report(tmp_path):
@@ -164,7 +178,8 @@ def test_doctor_explains_config_roles(tmp_path):
         assert "North Star:       monthly_unique_farmer_queries_resolved" in result.output
         assert "Test-case writer: gemini (gemini-2.0-flash)" in result.output
         assert "Scorer:" in result.output
-        assert "Result destination: langfuse" in result.output
+        assert "Result destination: local" in result.output
+        assert "local JSON and Markdown reports under data/results/runs/" in result.output
         assert "What a completed eval gives you" in result.output
 
 
@@ -289,3 +304,136 @@ def test_scorer_test_runs_template_metric(tmp_path):
         assert "Scorer Test" in result.output
         assert "farmer_query_resolution" in result.output
         assert "Score:   1.000" in result.output
+
+
+def test_local_upload_writes_dataset_file(tmp_path):
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        write_config(Path("eval_config.yaml"), destination="local")
+        data_dir = Path("data/synthetic/en")
+        data_dir.mkdir(parents=True)
+        (data_dir / "en_conv_01.json").write_text(
+            json.dumps(
+                {
+                    "conversation_id": "en_conv_01",
+                    "language": "en",
+                    "language_name": "English",
+                    "primary_topic": "crop_disease",
+                    "quality_status": "passed",
+                    "scenario": "missing_critical_context",
+                    "expected_next_action": "ask_clarification",
+                    "conversation_turns": [
+                        {"role": "user", "content": "My maize leaves have yellow spots."}
+                    ],
+                }
+            )
+        )
+
+        result = runner.invoke(cli, ["upload", "--languages", "en"])
+
+        assert result.exit_code == 0, result.output
+        dataset_path = Path("data/results/datasets/en_conversations.json")
+        assert dataset_path.exists()
+        payload = json.loads(dataset_path.read_text())
+        assert payload[0]["expected_output"]["scenario"] == "missing_critical_context"
+
+
+def test_local_run_writes_json_and_markdown_reports(tmp_path):
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        write_config(Path("eval_config.yaml"), destination="local")
+        app_dir = Path("app")
+        app_dir.mkdir()
+        (app_dir / "__init__.py").write_text("")
+        (app_dir / "agent.py").write_text(
+            "\n".join(
+                [
+                    "def run_conversation(messages, language, prompt_versions=None):",
+                    "    return {'responses': ['Which crop stage is the maize in?'], 'metadata': {}}",
+                    "",
+                ]
+            )
+        )
+        scorer_dir = Path("eval_scorers")
+        scorer_dir.mkdir()
+        (scorer_dir / "__init__.py").write_text("")
+        (scorer_dir / "resolution.py").write_text(
+            "\n".join(
+                [
+                    "def score(input, output, expected_output, metadata, context, metric):",
+                    "    return {",
+                    "        'name': metric['name'],",
+                    "        'value': 0.8,",
+                    "        'comment': context['north_star']['name'],",
+                    "    }",
+                    "",
+                ]
+            )
+        )
+        config_path = Path("eval_config.yaml")
+        config_path.write_text(
+            config_path.read_text().replace(
+                "  module: tests.fake_agent",
+                "  module: app.agent",
+            ).replace(
+                "  regression_threshold: 0.05\nresults:",
+                "  regression_threshold: 0.05\n"
+                "  custom_metrics:\n"
+                "    - name: farmer_query_resolution\n"
+                "      path: eval_scorers.resolution:score\n"
+                "results:",
+            )
+        )
+        data_dir = Path("data/synthetic/en")
+        data_dir.mkdir(parents=True)
+        (data_dir / "en_conv_01.json").write_text(
+            json.dumps(
+                {
+                    "conversation_id": "en_conv_01",
+                    "language": "en",
+                    "language_name": "English",
+                    "primary_topic": "crop_disease",
+                    "quality_status": "passed",
+                    "scenario": "missing_critical_context",
+                    "expected_next_action": "ask_clarification",
+                    "conversation_turns": [
+                        {"role": "user", "content": "My maize leaves have yellow spots."}
+                    ],
+                }
+            )
+        )
+
+        result = runner.invoke(cli, ["run", "--languages", "en"])
+
+        assert result.exit_code == 0, result.output
+        assert "Local reports" in result.output
+        run_files = sorted(Path("data/results/runs").glob("*.json"))
+        markdown_files = sorted(Path("data/results/runs").glob("*.md"))
+        assert len(run_files) == 1
+        assert len(markdown_files) == 1
+        report = json.loads(run_files[0].read_text())
+        assert report["destination"] == "local"
+        assert report["items"][0]["evaluations"]
+        assert report["scores"]["en"]["farmer_query_resolution"] == 0.8
+        assert any(
+            evaluation["name"] == "farmer_query_resolution"
+            for evaluation in report["items"][0]["evaluations"]
+        )
+
+
+def test_local_status_reports_datasets_and_runs(tmp_path):
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        write_config(Path("eval_config.yaml"), destination="local")
+        datasets_dir = Path("data/results/datasets")
+        runs_dir = Path("data/results/runs")
+        datasets_dir.mkdir(parents=True)
+        runs_dir.mkdir(parents=True)
+        (datasets_dir / "en_conversations.json").write_text("[]")
+        (runs_dir / "local-run.json").write_text(json.dumps({"scores": {}}))
+
+        result = runner.invoke(cli, ["status"])
+
+        assert result.exit_code == 0, result.output
+        assert "Local datasets: 1 file(s)" in result.output
+        assert "Local runs: 1 JSON report(s)" in result.output

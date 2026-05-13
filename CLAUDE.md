@@ -1,11 +1,11 @@
 # Eagle Eval
 
-This project provides the Eagle Eval CLI for local-first agent evaluation. Langfuse is the first live result destination; LangSmith, OpenAI Evals, Gemini / Vertex AI evaluation, and Claude workflows are active design targets.
+This project provides the Eagle Eval CLI for local-first agent evaluation. Local JSON/Markdown results are the default; Langfuse is the first hosted results service; LangSmith, OpenAI Evals, Gemini / Vertex AI evaluation, and Claude workflows are active design targets.
 
 ## Setup
 
 ```bash
-cd eagle-eval && python -m pip install -e ".[dev,langfuse,gemini]"
+cd eagle-eval && python -m pip install -e ".[dev,gemini]"
 eagle-eval init
 eagle-eval doctor
 ```
@@ -33,6 +33,7 @@ Every command has `--help`. All config lives in `eval_config.yaml`. All commands
 
 - Eagle Eval is the product; integration names should not define the product identity.
 - `eval_config.yaml` is the single source of truth for agent module, prompt names, languages, test-case writer, scorer, and result destination.
+- `results.destination: local` should work without hosted-service credentials and should write inspectable files under `results.local.directory`.
 - `app_context` defines the product use case and North Star. Do not evaluate as a generic chatbot when this context exists.
 - Custom scoring functions are declared in `scoring.custom_metrics` with `module:function` paths owned by the evaluated project.
 - Gemini is the default broad multilingual test-case writer and scorer.

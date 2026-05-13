@@ -9,12 +9,28 @@ log = logging.getLogger(__name__)
 
 def run_upload(config: dict, lang_codes: list[str], data_dir: Path,
                recreate: bool = False, dry_run: bool = False, verbose: bool = False) -> dict:
-    """Upload conversations to Langfuse datasets."""
+    """Send quality-gated conversations to the configured result destination."""
     if verbose:
         logging.basicConfig(level=logging.DEBUG)
 
     prefix = config.get("langfuse", {}).get("dataset_prefix", "evals")
     destination = str(config.get("results", {}).get("destination", "langfuse")).strip().lower()
+    if destination == "local":
+        from eagle_eval.local_results import local_results_dir, write_local_datasets
+
+        if dry_run:
+            project_dir = data_dir.expanduser().resolve().parent.parent
+            datasets_dir = local_results_dir(config, project_dir) / "datasets"
+            results = {"datasets": {}, "total_items": 0}
+            for lang_code in lang_codes:
+                count = len(_load_passed_conversations(data_dir / lang_code))
+                dataset_path = datasets_dir / f"{lang_code}_conversations.json"
+                results["datasets"][str(dataset_path)] = count
+                results["total_items"] += count
+            return results
+
+        return write_local_datasets(config, lang_codes, data_dir, recreate=recreate)
+
     if destination != "langfuse" and not dry_run:
         raise RuntimeError(
             f"Live upload currently supports Langfuse. Configured result destination: {destination}. "

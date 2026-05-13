@@ -18,6 +18,14 @@ class Integration:
 
 
 INTEGRATIONS = {
+    "local": Integration(
+        key="local",
+        label="Local files",
+        purpose="Store datasets, run JSON, and Markdown summaries on disk.",
+        packages=(),
+        env_vars=(),
+        docs_url="README.md#local-results",
+    ),
     "langfuse": Integration(
         key="langfuse",
         label="Langfuse",

@@ -175,12 +175,15 @@ def pass_rate(*, scores, **kwargs):
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
-ITEM_EVALUATORS = [language_consistency, response_completeness, topic_relevance, safety_check, response_quality]
+DETERMINISTIC_ITEM_EVALUATORS = [language_consistency, response_completeness]
+MODEL_ITEM_EVALUATORS = [topic_relevance, safety_check, response_quality]
+ITEM_EVALUATORS = [*DETERMINISTIC_ITEM_EVALUATORS, *MODEL_ITEM_EVALUATORS]
 RUN_EVALUATORS = [avg_language_consistency, avg_response_quality, pass_rate]
 
 
-def get_item_evaluators() -> list:
-    return [*ITEM_EVALUATORS, *_CUSTOM_EVALUATORS]
+def get_item_evaluators(include_model_scorers: bool = True) -> list:
+    built_ins = ITEM_EVALUATORS if include_model_scorers else DETERMINISTIC_ITEM_EVALUATORS
+    return [*built_ins, *_CUSTOM_EVALUATORS]
 
 
 def _llm_judge(prompt: str, retries: int = 3) -> dict:
