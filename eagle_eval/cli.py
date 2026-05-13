@@ -134,10 +134,11 @@ def init(dry_run, verbose):
         v = click.prompt(f"    Current version for '{p}'", default=1, type=int)
         prompt_versions[p] = v
 
-    synth_provider = click.prompt("  Provider for synthetic data generation", default="gemini")
-    synth_model = click.prompt("  Model for synthetic data generation", default="gemini-2.0-flash")
-    judge_provider = click.prompt("  Provider for LLM-as-a-judge evals", default="gemini")
-    judge_model = click.prompt("  Judge model", default="gemini-3.1-pro")
+    writer = click.prompt("  Test-case writer service", default="gemini")
+    writer_model = click.prompt("  Test-case writer model", default="gemini-2.0-flash")
+    scorer = click.prompt("  Scoring service", default="gemini")
+    scorer_model = click.prompt("  Scoring model", default="gemini-3.1-pro")
+    result_destination = click.prompt("  Result destination", default="langfuse")
 
     convs_per_lang = click.prompt("  Conversations per language", default=10, type=int)
     turns_per_conv = click.prompt("  Turns per conversation", default=10, type=int)
@@ -159,23 +160,23 @@ def init(dry_run, verbose):
         "prompt_versions": {
             "current": prompt_versions,
         },
-        "synthetic": {
-            "provider": synth_provider,
-            "model": synth_model,
+        "test_cases": {
+            "writer": writer,
+            "writer_model": writer_model,
             "conversations_per_language": convs_per_lang,
             "turns_per_conversation": turns_per_conv,
             "max_concurrency": 5,
             "quality_threshold": 3.5,
         },
-        "evaluation": {
-            "judge_provider": judge_provider,
-            "judge_model": judge_model,
+        "scoring": {
+            "scorer": scorer,
+            "scorer_model": scorer_model,
             "max_concurrency": 5,
             "item_timeout_seconds": 120,
             "regression_threshold": 0.05,
         },
-        "backends": {
-            "primary": "langfuse",
+        "results": {
+            "destination": result_destination,
         },
         "langfuse": {
             "dataset_prefix": "evals",
@@ -203,8 +204,8 @@ def init(dry_run, verbose):
 
     _heading("Setup Complete")
     _log("  Next steps:")
-    _log("    1. Set env vars: LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY, LANGFUSE_HOST")
-    _log(f"    2. Set API key for {synth_model}")
+    _log("    1. Set the API keys shown by: eagle-eval doctor")
+    _log(f"    2. Confirm the writer model: {writer_model}")
     _log("    3. Run: eagle-eval generate --languages tier1")
 
 
@@ -215,7 +216,7 @@ def init(dry_run, verbose):
 @click.option("--dry-run", is_flag=True, help="Show what would be generated without calling APIs")
 @click.option("--verbose", is_flag=True, help="Show detailed generation logs")
 def generate(languages, dry_run, verbose):
-    """Generate synthetic multilingual test conversations."""
+    """Generate multilingual test conversations."""
     config = _load_config()
     from eagle_eval.generate import run_generation
 
@@ -223,16 +224,16 @@ def generate(languages, dry_run, verbose):
     project_dir = _project_dir()
     data_dir = _data_dir()
 
-    convs = config["synthetic"]["conversations_per_language"]
-    turns = config["synthetic"]["turns_per_conversation"]
+    convs = config["test_cases"]["conversations_per_language"]
+    turns = config["test_cases"]["turns_per_conversation"]
     total_calls = len(lang_codes) * convs
-    model = config["synthetic"]["model"]
+    model = config["test_cases"]["writer_model"]
 
-    _heading("Generate Synthetic Data")
+    _heading("Generate Test Cases")
     _log(f"  Languages: {', '.join(lang_codes)} ({len(lang_codes)} total)")
     _log(f"  Conversations: {convs} per language × {len(lang_codes)} = {total_calls}")
     _log(f"  Turns per conversation: {turns}")
-    _log(f"  Model: {model}")
+    _log(f"  Test-case writer: {config['test_cases']['writer']} ({model})")
     _log(f"  Estimated API calls: {total_calls}")
 
     if dry_run:
@@ -306,14 +307,14 @@ def gate(dry_run, verbose):
 @click.option("--dry-run", is_flag=True)
 @click.option("--verbose", is_flag=True)
 def upload(languages, recreate, dry_run, verbose):
-    """Push quality-gated conversations to the configured eval backend."""
+    """Send quality-gated conversations to the configured result destination."""
     config = _load_config()
     from eagle_eval.upload import run_upload
 
     lang_codes = _resolve_languages(config, languages)
     data_dir = _data_dir()
 
-    _heading("Upload to Eval Backend")
+    _heading("Send to Result Destination")
     _log(f"  Languages: {', '.join(lang_codes)}")
     _log(f"  Mode: {'recreate' if recreate else 'append'}")
 
@@ -348,7 +349,7 @@ def run(languages, prompt_versions, max_concurrency, dry_run, verbose):
         if prompt_versions
         else config["prompt_versions"]["current"]
     )
-    concurrency = max_concurrency if max_concurrency is not None else config["evaluation"]["max_concurrency"]
+    concurrency = max_concurrency if max_concurrency is not None else config["scoring"]["max_concurrency"]
     if concurrency < 1:
         raise click.BadParameter("must be at least 1", param_hint="--max-concurrency")
 
@@ -384,8 +385,8 @@ def compare(baseline, candidate, languages, output, dry_run, verbose):
     lang_codes = _resolve_languages(config, languages)
     baseline_pv = _parse_json_object(baseline, "--baseline")
     candidate_pv = _parse_json_object(candidate, "--candidate")
-    concurrency = config["evaluation"]["max_concurrency"]
-    threshold = config["evaluation"]["regression_threshold"]
+    concurrency = config["scoring"]["max_concurrency"]
+    threshold = config["scoring"]["regression_threshold"]
 
     _heading("Prompt Version Comparison")
     _log(f"  Baseline:  {json.dumps(baseline_pv)}")
@@ -430,7 +431,7 @@ def compare(baseline, candidate, languages, output, dry_run, verbose):
 # ─── status ─────────────────────────────────────────────────────────────────
 
 @cli.command()
-@click.option("--dry-run", is_flag=True, help="Only inspect local state; do not connect to the eval backend")
+@click.option("--dry-run", is_flag=True, help="Only inspect local state; do not connect to the result destination")
 @click.option("--verbose", is_flag=True, help="Show resolved paths")
 def status(dry_run, verbose):
     """Show current datasets, items counts, and last run scores."""
@@ -439,6 +440,7 @@ def status(dry_run, verbose):
     config = _load_optional_config()
     data_dir = _data_dir()
     prefix = config.get("langfuse", {}).get("dataset_prefix", "evals")
+    destination = str(config.get("results", {}).get("destination", "langfuse")).strip().lower()
 
     if verbose:
         _log(f"  Project dir: {_project_dir()}")
@@ -446,13 +448,16 @@ def status(dry_run, verbose):
         _log(f"  Data dir: {data_dir}")
 
     if dry_run:
-        _warn("Dry run — skipped backend connection")
+        _warn("Dry run — skipped result-destination connection")
+    elif destination != "langfuse":
+        _warn(f"Live status currently supports Langfuse. Configured result destination: {destination}")
+        _log("  Run 'eagle-eval doctor --verbose' to inspect SDK readiness.")
     else:
         try:
             from langfuse import get_client
             lf = get_client()
         except Exception as e:
-            _err(f"Cannot connect to Langfuse backend: {e}")
+            _err(f"Cannot connect to Langfuse result destination: {e}")
             _log("  Check LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY, LANGFUSE_HOST")
             lf = None
 
@@ -486,6 +491,89 @@ def status(dry_run, verbose):
         _ok(f"quality_report.json: {report.get('passed', '?')}/{report.get('total', '?')} passed")
     else:
         _warn("No quality report. Run 'gate' first.")
+
+
+# ─── doctor ─────────────────────────────────────────────────────────────────
+
+@cli.command()
+@click.option("--verbose", is_flag=True, help="Show docs links and every checked key")
+def doctor(verbose):
+    """Explain config roles and check local integration readiness."""
+    _heading("Eagle Eval Doctor")
+
+    config = _load_optional_config()
+    if not config:
+        _warn("No eval_config.yaml found. Run 'eagle-eval init' first.")
+    else:
+        test_cases = config.get("test_cases", {})
+        scoring = config.get("scoring", {})
+        results = config.get("results", {})
+        _log("  Config roles:")
+        _log(f"    Test-case writer: {test_cases.get('writer', '?')} ({test_cases.get('writer_model', '?')})")
+        _log(f"    Scorer:           {scoring.get('scorer', '?')} ({scoring.get('scorer_model', '?')})")
+        _log(f"    Result destination: {results.get('destination', '?')}")
+
+    from eagle_eval.integrations import check_integrations
+
+    _log("\n  Integration readiness:")
+    for item in check_integrations(config):
+        marker = "*" if item["configured"] else " "
+        package_ok = all(item["packages"].values())
+        env_ok = all(item["env"].values())
+        package_msg = "SDK installed" if package_ok else "SDK missing"
+        env_msg = "env ready" if env_ok else "env missing"
+        line = f"  {marker} {item['label']}: {package_msg}, {env_msg}"
+        if item["configured"] and package_ok and env_ok:
+            _ok(line.strip())
+        elif item["configured"]:
+            _warn(line.strip())
+        else:
+            _log(line)
+
+        if verbose:
+            packages = ", ".join(f"{name}={'ok' if ok else 'missing'}" for name, ok in item["packages"].items())
+            env = ", ".join(f"{name}={'set' if ok else 'missing'}" for name, ok in item["env"].items())
+            _log(f"      Purpose: {item['purpose']}")
+            _log(f"      Packages: {packages}")
+            _log(f"      Env: {env}")
+            _log(f"      Docs: {item['docs_url']}")
+
+    _log("\n  What a completed eval gives you:")
+    _log("    - generated multilingual test cases under data/synthetic/")
+    _log("    - quality_report.json showing which test cases are ready")
+    _log("    - scored agent runs with per-language metrics")
+    _log("    - a regression decision when comparing prompt/model versions")
+
+
+# ─── install-assistants ─────────────────────────────────────────────────────
+
+@cli.command("install-assistants")
+@click.option("--tool", type=click.Choice(["all", "codex", "claude"]), default="all", show_default=True)
+@click.option("--yes", is_flag=True, help="Write files without asking for confirmation")
+@click.option("--force", is_flag=True, help="Overwrite existing helper files")
+def install_assistants(tool, yes, force):
+    """Install Codex and Claude Code helper files for this eval workflow."""
+    project_dir = _project_dir()
+    _heading("Install Assistant Helpers")
+    _log(f"  Project dir: {project_dir}")
+    _log(f"  Target: {tool}")
+
+    if not yes:
+        if not click.confirm("  Write project helper files?", default=True):
+            _log("  No files written.")
+            return
+
+    from eagle_eval.assistant_install import install_assistant_support
+
+    actions = install_assistant_support(project_dir, tool=tool, force=force)
+    for action in actions:
+        rel = action.path.relative_to(project_dir)
+        if action.status == "skipped":
+            _warn(f"Skipped existing {rel} (use --force to overwrite)")
+        elif action.status == "updated":
+            _ok(f"Updated {rel}")
+        else:
+            _ok(f"Created {rel}")
 
 
 # ─── update ──────────────────────────────────────────────────────────────────

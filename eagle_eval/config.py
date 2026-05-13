@@ -79,7 +79,7 @@ def load_config(config_path: Path) -> dict:
     if not isinstance(config, dict):
         raise ValueError("eval_config.yaml must contain a YAML mapping/object")
 
-    required_keys = ["app_name", "domain", "agent", "languages", "prompt_versions", "synthetic", "evaluation"]
+    required_keys = ["app_name", "domain", "agent", "languages", "prompt_versions", "test_cases", "scoring", "results"]
     missing = [k for k in required_keys if k not in config]
     if missing:
         raise ValueError(f"Missing required config keys: {missing}")
@@ -95,9 +95,18 @@ def load_config(config_path: Path) -> dict:
     if not isinstance(config["prompt_versions"], dict) or not isinstance(config["prompt_versions"].get("current"), dict):
         raise ValueError("prompt_versions.current must be a mapping of prompt names to versions")
 
-    for section in ("synthetic", "evaluation"):
+    for section in ("test_cases", "scoring", "results"):
         if not isinstance(config[section], dict):
             raise ValueError(f"{section} must be a mapping")
+
+    if "writer" not in config["test_cases"] or "writer_model" not in config["test_cases"]:
+        raise ValueError("test_cases.writer and test_cases.writer_model are required in config")
+
+    if "scorer" not in config["scoring"] or "scorer_model" not in config["scoring"]:
+        raise ValueError("scoring.scorer and scoring.scorer_model are required in config")
+
+    if "destination" not in config["results"]:
+        raise ValueError("results.destination is required in config")
 
     return config
 

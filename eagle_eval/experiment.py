@@ -10,15 +10,22 @@ log = logging.getLogger(__name__)
 
 def run_experiment(config: dict, lang_codes: list[str], prompt_versions: dict,
                    concurrency: int, run_prefix: str = "", verbose: bool = False) -> dict:
-    """Run the agent against backend datasets and evaluate."""
+    """Run the agent against stored datasets and evaluate."""
     if verbose:
         logging.basicConfig(level=logging.DEBUG)
+
+    destination = str(config.get("results", {}).get("destination", "langfuse")).strip().lower()
+    if destination != "langfuse":
+        raise RuntimeError(
+            f"Live experiment runs currently support Langfuse. Configured result destination: {destination}. "
+            "Run 'eagle-eval doctor --verbose' to inspect SDK readiness."
+        )
 
     try:
         from langfuse import get_client
     except ImportError as exc:
         raise RuntimeError(
-            "The Langfuse backend requires the Langfuse extra. "
+            "The Langfuse result destination requires the Langfuse extra. "
             "Install it with: python -m pip install 'eagle-eval[langfuse]'"
         ) from exc
     from eagle_eval.evaluators import ITEM_EVALUATORS, RUN_EVALUATORS, configure as configure_evaluators
@@ -27,12 +34,12 @@ def run_experiment(config: dict, lang_codes: list[str], prompt_versions: dict,
     prefix = config.get("langfuse", {}).get("dataset_prefix", "evals")
     agent_module = config["agent"]["module"]
     agent_function = config["agent"]["function"]
-    judge_provider = config["evaluation"].get("judge_provider")
-    judge_model = config["evaluation"]["judge_model"]
+    scorer = config["scoring"].get("scorer")
+    scorer_model = config["scoring"]["scorer_model"]
     domain = config["domain"]
-    timeout = config["evaluation"].get("item_timeout_seconds", 120)
+    timeout = config["scoring"].get("item_timeout_seconds", 120)
 
-    configure_evaluators(judge_model=judge_model, judge_provider=judge_provider, domain=domain)
+    configure_evaluators(scorer_model=scorer_model, scorer=scorer, domain=domain)
 
     # Import the agent
     try:
@@ -44,7 +51,7 @@ def run_experiment(config: dict, lang_codes: list[str], prompt_versions: dict,
             f"Make sure the agent module is importable from the current directory."
         )
 
-    # Fetch prompt objects from the configured backend when supported.
+    # Fetch prompt objects from the result destination when supported.
     prompts = {}
     for prompt_name, version in prompt_versions.items():
         try:
@@ -98,7 +105,7 @@ def run_experiment(config: dict, lang_codes: list[str], prompt_versions: dict,
                 name=run_name,
                 task=task,
                 evaluators=ITEM_EVALUATORS,
-                # Note: run_evaluators support depends on backend SDK version
+                # Note: run_evaluators support depends on the installed SDK version.
                 # If not supported, run-level aggregation happens in the compare script
                 max_concurrency=concurrency,
                 metadata={
@@ -127,7 +134,7 @@ def _extract_scores(result) -> dict:
     """Extract average scores from an experiment result object."""
     scores = {}
 
-    # The result object's structure depends on backend SDK version
+    # The result object's structure depends on the installed SDK version.
     # Try the format() approach first for display, then extract numerics
     try:
         if hasattr(result, "scores") and result.scores:

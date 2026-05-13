@@ -1,4 +1,4 @@
-"""Quality gate: automated checks + LLM-as-a-judge review on synthetic data."""
+"""Quality gate: automated checks plus model-scored review on synthetic data."""
 
 import json
 import logging
@@ -13,9 +13,9 @@ def run_quality_gate(config: dict, data_dir: Path, dry_run: bool = False, verbos
     if verbose:
         logging.basicConfig(level=logging.DEBUG)
 
-    threshold = config["synthetic"].get("quality_threshold", 3.5)
-    judge_provider = config["evaluation"].get("judge_provider") or _infer_provider(config["evaluation"]["judge_model"])
-    judge_model = config["evaluation"]["judge_model"]
+    threshold = config["test_cases"].get("quality_threshold", 3.5)
+    scorer = config["scoring"].get("scorer") or _infer_provider(config["scoring"]["scorer_model"])
+    scorer_model = config["scoring"]["scorer_model"]
     domain = config["domain"]
     persona = config.get("user_persona", "user")
 
@@ -43,7 +43,7 @@ def run_quality_gate(config: dict, data_dir: Path, dry_run: bool = False, verbos
         if dry_run:
             score = {"overall": 4.0, "naturalness": 4, "topic_coverage": 4, "difficulty_match": 4, "language_quality": 4, "issues": "dry run"}
         else:
-            score = _llm_quality_review(conv, judge_provider, judge_model, domain, persona)
+            score = _llm_quality_review(conv, scorer, scorer_model, domain, persona)
 
         if score is None:
             score = {"overall": 0, "issues": "LLM review failed"}
@@ -167,7 +167,7 @@ Respond with ONLY this JSON, no markdown fences:
         elif provider == "anthropic":
             return _call_anthropic_judge(model, prompt)
         else:
-            log.warning(f"Unsupported judge provider: {provider}")
+            log.warning(f"Unsupported scorer service: {provider}")
             return None
     except Exception as e:
         log.error(f"Quality review failed: {e}")

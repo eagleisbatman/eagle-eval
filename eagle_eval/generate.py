@@ -1,4 +1,4 @@
-"""Generate synthetic multilingual conversations using a configured model provider."""
+"""Generate synthetic multilingual conversations using a configured model service."""
 
 import json
 import logging
@@ -45,11 +45,12 @@ def run_generation(config: dict, lang_codes: list[str], proj_dir: Path, verbose:
     data_dir.mkdir(parents=True, exist_ok=True)
 
     topics = _load_topics(proj_dir / "config" / "topics.json")
-    provider = config["synthetic"].get("provider") or _infer_provider(config["synthetic"]["model"])
-    model = config["synthetic"]["model"]
-    convs_per_lang = config["synthetic"]["conversations_per_language"]
-    turns = config["synthetic"]["turns_per_conversation"]
-    max_concurrency = config["synthetic"].get("max_concurrency", 5)
+    test_cases = config["test_cases"]
+    writer = test_cases.get("writer") or _infer_provider(test_cases["writer_model"])
+    model = test_cases["writer_model"]
+    convs_per_lang = test_cases["conversations_per_language"]
+    turns = test_cases["turns_per_conversation"]
+    max_concurrency = test_cases.get("max_concurrency", 5)
     domain = config["domain"]
     persona = config.get("user_persona", "user")
 
@@ -92,7 +93,7 @@ def run_generation(config: dict, lang_codes: list[str], proj_dir: Path, verbose:
 
             log.info(f"Generating {conv_id} ({lang_name}, {topic['name']}, {difficulty})")
 
-            conversation = _call_llm(provider, model, prompt, retries=3)
+            conversation = _call_llm(writer, model, prompt, retries=3)
             if conversation is None:
                 log.error(f"Failed to generate {conv_id} after 3 retries")
                 failed += 1
@@ -145,7 +146,7 @@ def _call_llm(provider: str, model: str, prompt: str, retries: int = 3) -> dict 
                 return _call_anthropic(model, prompt)
             else:
                 raise ValueError(
-                    f"Unsupported generation provider: {provider}. "
+                    f"Unsupported test-case writer: {provider}. "
                     "Use gemini, openai, or anthropic."
                 )
         except json.JSONDecodeError as e:

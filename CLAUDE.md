@@ -1,12 +1,13 @@
 # Eagle Eval
 
-This project provides the Eagle Eval CLI for agent evaluation. Langfuse is the first supported backend adapter.
+This project provides the Eagle Eval CLI for local-first agent evaluation. Langfuse is the first live result destination; LangSmith, OpenAI Evals, Gemini / Vertex AI evaluation, and Claude workflows are active design targets.
 
 ## Setup
 
 ```bash
 cd eagle-eval && python -m pip install -e ".[dev,langfuse,gemini]"
 eagle-eval init
+eagle-eval doctor
 ```
 
 ## Commands
@@ -18,6 +19,7 @@ eagle-eval upload
 eagle-eval run --languages tier1
 eagle-eval compare --baseline '{"router":13}' --candidate '{"router":14}'
 eagle-eval status
+eagle-eval install-assistants --tool all --yes
 eagle-eval update --dry-run
 ```
 
@@ -25,11 +27,14 @@ Every command has `--help`. All config lives in `eval_config.yaml`. All commands
 
 ## Key Constraints
 
-- Eagle Eval is the product; backend names should not define the product identity.
-- Langfuse is a data store/reporting backend, not the whole product and not a runner. All execution happens locally.
-- `eval_config.yaml` is the single source of truth for agent module, prompt names, languages, provider choices, and backend settings.
-- Gemini is the default broad multilingual generation/judge provider.
-- OpenAI and Claude are valid generation/judge providers, but should be used where their language coverage fits the target eval set.
-- Braintrust, Phoenix, and Promptfoo are backend backlog items only for now.
+- Eagle Eval is the product; integration names should not define the product identity.
+- `eval_config.yaml` is the single source of truth for agent module, prompt names, languages, test-case writer, scorer, and result destination.
+- Gemini is the default broad multilingual test-case writer and scorer.
+- OpenAI and Claude are valid writer/scorer services where their language coverage fits the target eval set.
+- Braintrust, Phoenix, and Promptfoo are deferred items only for now.
 - The `run` command imports and calls the actual agent defined in config. The agent must be importable from wherever this runs.
 - Updates run through `python -m pip install --upgrade`; set `updates.source` to a GitHub `git+https://...@branch` URL for push-to-update workflows.
+
+## Claude Code Workflow
+
+Run `/eagle-eval` after `eagle-eval install-assistants --tool claude --yes` to load the project skill. Prefer `eagle-eval doctor` before live commands so missing SDKs and env vars are visible.

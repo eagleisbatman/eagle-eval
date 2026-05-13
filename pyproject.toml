@@ -20,7 +20,17 @@ anthropic = ["anthropic>=0.39"]
 dev = ["pytest>=8.0"]
 gemini = ["google-genai>=1.0"]
 langfuse = ["langfuse>=4.0"]
+langsmith = ["langsmith>=0.3.0"]
 openai = ["openai>=1.0"]
+vertex = ["google-cloud-aiplatform[evaluation]>=1.73"]
+all = [
+  "anthropic>=0.39",
+  "google-cloud-aiplatform[evaluation]>=1.73",
+  "google-genai>=1.0",
+  "langfuse>=4.0",
+  "langsmith>=0.3.0",
+  "openai>=1.0",
+]
 
 [project.scripts]
 eagle-eval = "eagle_eval.cli:cli"

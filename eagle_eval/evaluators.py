@@ -8,7 +8,7 @@ try:
     from langfuse import Evaluation
 except ImportError:
     class Evaluation:
-        """Small fallback used when backend-specific SDKs are not installed."""
+        """Small fallback used when a result-destination SDK is not installed."""
 
         def __init__(self, name: str, value: float, comment: str = ""):
             self.name = name
@@ -17,16 +17,16 @@ except ImportError:
 
 log = logging.getLogger(__name__)
 
-_JUDGE_MODEL = None
-_JUDGE_PROVIDER = None
+_SCORER_MODEL = None
+_SCORER = None
 _DOMAIN = None
 
 
-def configure(judge_model: str, domain: str, judge_provider: str | None = None):
-    """Set the judge model and domain globally for LLM evaluators."""
-    global _JUDGE_MODEL, _JUDGE_PROVIDER, _DOMAIN
-    _JUDGE_MODEL = judge_model
-    _JUDGE_PROVIDER = judge_provider or _infer_provider(judge_model)
+def configure(scorer_model: str, domain: str, scorer: str | None = None):
+    """Set the scoring model and domain globally for model-scored evaluators."""
+    global _SCORER_MODEL, _SCORER, _DOMAIN
+    _SCORER_MODEL = scorer_model
+    _SCORER = scorer or _infer_provider(scorer_model)
     _DOMAIN = domain
 
 
@@ -161,8 +161,8 @@ RUN_EVALUATORS = [avg_language_consistency, avg_response_quality, pass_rate]
 
 
 def _llm_judge(prompt: str, retries: int = 3) -> dict:
-    """Call the judge model and parse JSON response."""
-    provider = _normalize_provider(_JUDGE_PROVIDER, _JUDGE_MODEL or "")
+    """Call the scoring model and parse JSON response."""
+    provider = _normalize_provider(_SCORER, _SCORER_MODEL or "")
     for attempt in range(retries):
         try:
             if provider == "gemini":
@@ -172,14 +172,14 @@ def _llm_judge(prompt: str, retries: int = 3) -> dict:
             elif provider == "anthropic":
                 text = _call_anthropic(prompt)
             else:
-                return {"score": 0.0, "reasoning": f"Unsupported judge provider: {provider}"}
+                return {"score": 0.0, "reasoning": f"Unsupported scorer service: {provider}"}
 
             return _parse_json(text)
         except Exception as e:
-            log.warning(f"Judge call attempt {attempt+1} failed: {e}")
+            log.warning(f"Scorer call attempt {attempt+1} failed: {e}")
             time.sleep(2 ** attempt)
 
-    return {"score": 0.0, "reasoning": "Judge failed after retries"}
+    return {"score": 0.0, "reasoning": "Scorer failed after retries"}
 
 
 def _normalize_provider(provider: str | None, model: str) -> str:
@@ -210,10 +210,10 @@ def _call_gemini(prompt: str) -> str:
     try:
         from google import genai
         client = genai.Client()
-        response = client.models.generate_content(model=_JUDGE_MODEL, contents=prompt)
+        response = client.models.generate_content(model=_SCORER_MODEL, contents=prompt)
     except ImportError:
         from google.generativeai import GenerativeModel
-        gm = GenerativeModel(_JUDGE_MODEL)
+        gm = GenerativeModel(_SCORER_MODEL)
         response = gm.generate_content(prompt)
     return response.text
 
@@ -222,7 +222,7 @@ def _call_openai(prompt: str) -> str:
     from openai import OpenAI
 
     client = OpenAI()
-    response = client.responses.create(model=_JUDGE_MODEL, input=prompt)
+    response = client.responses.create(model=_SCORER_MODEL, input=prompt)
     return response.output_text
 
 
@@ -230,7 +230,7 @@ def _call_anthropic(prompt: str) -> str:
     import anthropic
     client = anthropic.Anthropic()
     response = client.messages.create(
-        model=_JUDGE_MODEL, max_tokens=1024,
+        model=_SCORER_MODEL, max_tokens=1024,
         messages=[{"role": "user", "content": prompt}],
     )
     return response.content[0].text

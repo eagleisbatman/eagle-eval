@@ -34,23 +34,23 @@ prompt_versions:
     grounding: 1
     response-gen: 1
 
-synthetic:
-  provider: gemini
-  model: gemini-2.0-flash
+test_cases:
+  writer: gemini
+  writer_model: gemini-2.0-flash
   conversations_per_language: 10
   turns_per_conversation: 10
   max_concurrency: 5
   quality_threshold: 3.5
 
-evaluation:
-  judge_provider: gemini
-  judge_model: gemini-3.1-pro
+scoring:
+  scorer: gemini
+  scorer_model: gemini-3.1-pro
   max_concurrency: 5
   item_timeout_seconds: 120
   regression_threshold: 0.05
 
-backends:
-  primary: langfuse
+results:
+  destination: langfuse
 
 langfuse:
   dataset_prefix: evals

@@ -1,4 +1,4 @@
-"""Upload quality-gated conversations to the configured eval backend."""
+"""Send quality-gated conversations to the configured result destination."""
 
 import json
 import logging
@@ -14,13 +14,19 @@ def run_upload(config: dict, lang_codes: list[str], data_dir: Path,
         logging.basicConfig(level=logging.DEBUG)
 
     prefix = config.get("langfuse", {}).get("dataset_prefix", "evals")
+    destination = str(config.get("results", {}).get("destination", "langfuse")).strip().lower()
+    if destination != "langfuse" and not dry_run:
+        raise RuntimeError(
+            f"Live upload currently supports Langfuse. Configured result destination: {destination}. "
+            "Run 'eagle-eval doctor --verbose' to inspect SDK readiness."
+        )
 
     if not dry_run:
         try:
             from langfuse import get_client
         except ImportError as exc:
             raise RuntimeError(
-                "The Langfuse backend requires the Langfuse extra. "
+                "The Langfuse result destination requires the Langfuse extra. "
                 "Install it with: python -m pip install 'eagle-eval[langfuse]'"
             ) from exc
         lf = get_client()

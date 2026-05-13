@@ -1,13 +1,9 @@
 # Backlog
 
-## Backend Adapters
+These integrations are intentionally deferred for now:
 
-These are intentionally backlog items for now:
+- Braintrust result destination
+- Phoenix observability/result destination
+- Promptfoo export/run workflow
 
-- Braintrust backend adapter
-- Phoenix backend adapter
-- Promptfoo export/run adapter
-
-## Provider Notes
-
-OpenAI and Claude are **not** backend backlog items. They are active design targets for data generation and judge-provider support, with Gemini remaining the default for broad multilingual coverage.
+OpenAI and Claude are active writer/scorer targets. Gemini remains the default for broad multilingual coverage.

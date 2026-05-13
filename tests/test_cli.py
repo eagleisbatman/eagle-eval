@@ -27,21 +27,21 @@ def write_config(path: Path, language_count: int = 3):
                 "prompt_versions:",
                 "  current:",
                 "    router: 1",
-                "synthetic:",
-                "  provider: gemini",
-                "  model: gemini-2.0-flash",
+                "test_cases:",
+                "  writer: gemini",
+                "  writer_model: gemini-2.0-flash",
                 "  conversations_per_language: 1",
                 "  turns_per_conversation: 3",
                 "  max_concurrency: 1",
                 "  quality_threshold: 3.5",
-                "evaluation:",
-                "  judge_provider: gemini",
-                "  judge_model: gemini-3.1-pro",
+                "scoring:",
+                "  scorer: gemini",
+                "  scorer_model: gemini-3.1-pro",
                 "  max_concurrency: 1",
                 "  item_timeout_seconds: 120",
                 "  regression_threshold: 0.05",
-                "backends:",
-                "  primary: langfuse",
+                "results:",
+                "  destination: langfuse",
                 "langfuse:",
                 "  dataset_prefix: evals",
                 "",
@@ -139,3 +139,30 @@ def test_self_update_alias_is_not_registered():
 
     assert result.exit_code != 0
     assert "No such command 'self-update'" in result.output
+
+
+def test_doctor_explains_config_roles(tmp_path):
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        write_config(Path("eval_config.yaml"))
+
+        result = runner.invoke(cli, ["doctor"])
+
+        assert result.exit_code == 0, result.output
+        assert "Test-case writer: gemini (gemini-2.0-flash)" in result.output
+        assert "Scorer:" in result.output
+        assert "Result destination: langfuse" in result.output
+        assert "What a completed eval gives you" in result.output
+
+
+def test_install_assistants_writes_codex_and_claude_helpers(tmp_path):
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(cli, ["install-assistants", "--yes"])
+
+        assert result.exit_code == 0, result.output
+        assert Path("AGENTS.md").exists()
+        assert Path("CLAUDE.md").exists()
+        assert Path(".claude/skills/eagle-eval/SKILL.md").exists()
+        assert "Test-case writer" in Path("AGENTS.md").read_text()
+        assert "eagle-eval doctor" in Path(".claude/skills/eagle-eval/SKILL.md").read_text()

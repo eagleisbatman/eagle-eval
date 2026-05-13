@@ -1,32 +1,54 @@
 # Eagle Eval
 
-Eagle Eval is a local-first CLI for evaluating agentic AI applications. It generates multilingual eval cases, quality-gates them, runs your real agent, scores outputs with a stronger judge model, and reports results to an eval backend.
+Eagle Eval is a local-first CLI for evaluating agentic AI applications. It creates realistic multilingual test cases, checks test-case quality, runs your real agent, scores the agent's answers, and keeps the results in the workspace you choose.
 
-Langfuse is the first supported backend adapter. It is not the product identity.
+The product is Eagle Eval. Langfuse is currently the first live result destination; LangSmith, OpenAI Evals, Gemini / Vertex AI evaluation, and Claude workflows are active design targets.
 
-## Why It Exists
+## What You Get
 
-Agent evals are easy to talk about and hard to operate well. Eagle Eval is meant to make the full loop repeatable:
+After a complete eval run, you should have:
 
-- generate realistic multilingual conversations
-- preserve known failure cases as regression data
-- run the actual agent code, not a mock
-- judge outputs with a stronger model than the agent
-- compare prompt/model versions before shipping
-- keep datasets, traces, and scores in a backend such as Langfuse
+- generated test cases in `data/synthetic/`
+- `quality_report.json` showing which generated cases are good enough to use
+- a stored dataset of passing test cases
+- scored agent runs broken down by language and metric
+- a compare result that tells you whether a prompt/model change regressed
+- enough trace/run context to debug why the agent failed
 
-## Current Scope
+This is the mental model used across the major eval tools: Langfuse describes evals as repeatable checks that catch regressions, LangSmith centers datasets, experiments, and evaluator scores, OpenAI uses traces, graders, datasets, and eval runs, Vertex AI returns task-specific metrics, and Claude's evaluation flow uses test cases plus prompt-version comparison.
 
-| Area | Current support |
-| --- | --- |
-| CLI command | `eagle-eval` |
-| Python package | `eagle_eval` |
-| Generation providers | Gemini primary; OpenAI and Claude supported where useful |
-| Judge providers | Gemini primary; OpenAI and Claude supported where useful |
-| Eval backend | Langfuse |
-| Backlog backends | Braintrust, Phoenix, Promptfoo |
+## Plain English Roles
 
-Gemini remains the default for broad multilingual generation and judging because OpenAI and Claude may not cover every supported language with the same consistency. OpenAI and Claude are still valid provider options for narrower language sets, adversarial cases, and judge comparisons.
+| Role | Meaning | Common choices |
+| --- | --- | --- |
+| Test-case writer | The model service that writes realistic user conversations for your domain and languages. | Gemini by default; OpenAI or Claude for narrower language sets or adversarial case writing. |
+| Scorer | The code or stronger model that grades your agent's answers. | Deterministic checks plus Gemini, OpenAI, or Claude. Use a stronger model than the agent when possible. |
+| Result destination | The place where datasets, runs, traces, and scores are stored and reviewed. | Langfuse now; LangSmith, OpenAI Evals, Gemini / Vertex AI evaluation, and Claude workflows are being prepared. |
+
+Gemini remains the default for broad multilingual case writing and scoring. OpenAI and Claude are valid choices when their language coverage fits the eval set or when you want a second opinion from a different model family.
+
+## Scoring
+
+Eagle Eval uses two score layers.
+
+Quality gate scores the generated test cases before they become regression data:
+
+- `naturalness`: 1-5, whether the user messages sound realistic
+- `topic_coverage`: 1-5, whether the conversation explores the intended topic
+- `difficulty_match`: 1-5, whether the generated difficulty matches the request
+- `language_quality`: 1-5, whether the language is natural and not translated English
+- `overall`: 1-5, used against `test_cases.quality_threshold`
+
+Agent-run scores measure the actual agent output:
+
+- `language_consistency`: 0 or 1
+- `response_completeness`: 0 to 1
+- `topic_relevance`: 0 to 1, model-scored
+- `safety_check`: 0 or 1, model-scored
+- `response_quality`: 0 to 1, model-scored
+- `pass_rate`: 0 to 1 aggregate
+
+OpenAI's grader guidance also uses 0 to 1 grades, Langfuse supports numeric, categorical, boolean, and text scores, LangSmith evaluator feedback contains a metric key plus score/value and optional comment, Vertex AI supports model-based and computation-based metrics, and Claude recommends code-based, human, and LLM-based grading depending on reliability needs.
 
 ## Install
 
@@ -35,41 +57,67 @@ cd eagle-eval
 python -m pip install -e ".[dev,langfuse,gemini]"
 ```
 
-Optional provider extras:
+Install every planned SDK check:
+
+```bash
+python -m pip install -e ".[all]"
+```
+
+Install individual SDKs:
 
 ```bash
 python -m pip install -e ".[openai]"
 python -m pip install -e ".[anthropic]"
+python -m pip install -e ".[langsmith]"
+python -m pip install -e ".[vertex]"
 ```
 
-## Configure
+## One Setup For CLI, Codex, And Claude Code
 
-Run the interactive setup:
+Create `eval_config.yaml`:
 
 ```bash
 eagle-eval init
 ```
 
-Or start from the example config:
+Install project helper files for both coding agents:
+
+```bash
+eagle-eval install-assistants --tool all --yes
+```
+
+That writes:
+
+- `AGENTS.md` for Codex project instructions
+- `CLAUDE.md` for Claude Code project memory
+- `.claude/skills/eagle-eval/SKILL.md` for a Claude Code `/eagle-eval` workflow
+
+Codex documents project guidance through `AGENTS.md`. Claude Code documents project memory through `CLAUDE.md` and supports project skills/custom commands under `.claude/skills/`.
+
+## Configure
+
+Start from the example config if you do not want the prompt flow:
 
 ```bash
 cp examples/eval_config.example.yaml eval_config.yaml
 ```
 
-Set env vars for the providers you use:
+Use `doctor` before live runs:
+
+```bash
+eagle-eval doctor --verbose
+```
+
+Set only the keys for the services you use:
 
 ```bash
 export GOOGLE_API_KEY="..."
 export LANGFUSE_PUBLIC_KEY="pk-..."
 export LANGFUSE_SECRET_KEY="sk-..."
 export LANGFUSE_HOST="https://cloud.langfuse.com"
-```
-
-Optional:
-
-```bash
 export OPENAI_API_KEY="..."
 export ANTHROPIC_API_KEY="..."
+export LANGSMITH_API_KEY="..."
 ```
 
 ## Run The Loop
@@ -85,26 +133,24 @@ eagle-eval compare \
 eagle-eval status
 ```
 
-All commands support `--help`, `--dry-run`, and `--verbose`.
-
-Use `--project-dir /path/to/project` when the installed CLI should read or write a specific eval workspace instead of the current directory.
+All commands support `--help`, `--dry-run`, and `--verbose`. Use `--project-dir /path/to/project` when the installed CLI should read or write a specific eval workspace instead of the current directory.
 
 ## Config Shape
 
 ```yaml
-synthetic:
-  provider: gemini
-  model: gemini-2.0-flash
+test_cases:
+  writer: gemini
+  writer_model: gemini-2.0-flash
 
-evaluation:
-  judge_provider: gemini
-  judge_model: gemini-3.1-pro
+scoring:
+  scorer: gemini
+  scorer_model: gemini-3.1-pro
 
-backends:
-  primary: langfuse
+results:
+  destination: langfuse
 ```
 
-Generation and judging are separate provider decisions. Your agent can use one model, the synthetic-data generator can use another, and the judge should usually be stronger than the agent model.
+Your agent can use one model, the test-case writer can use another, and the scorer should usually be stronger than the agent model.
 
 ## Update
 
@@ -128,6 +174,20 @@ eagle-eval update --dry-run
 eagle-eval update
 ```
 
+## Design References
+
+- [Codex AGENTS.md guide](https://developers.openai.com/codex/guides/agents-md)
+- [Claude Code skills and custom commands](https://code.claude.com/docs/en/slash-commands)
+- [Claude Code settings and CLAUDE.md](https://code.claude.com/docs/en/settings)
+- [Langfuse evaluation overview](https://langfuse.com/docs/evaluation/overview)
+- [Langfuse score types](https://langfuse.com/docs/evaluation/scores/overview)
+- [LangSmith evaluation concepts](https://docs.langchain.com/langsmith/evaluation-concepts)
+- [OpenAI agent evals](https://developers.openai.com/api/docs/guides/agent-evals)
+- [OpenAI graders](https://developers.openai.com/api/docs/guides/graders)
+- [Vertex AI Gen AI evaluation service](https://cloud.google.com/vertex-ai/generative-ai/docs/model-reference/evaluation)
+- [Claude evaluation tool](https://platform.claude.com/docs/en/test-and-evaluate/eval-tool)
+- [Claude eval design principles](https://platform.claude.com/docs/en/test-and-evaluate/develop-tests)
+
 ## Development
 
 ```bash
@@ -138,21 +198,15 @@ python -m compileall eagle_eval tests
 
 ## Repository Status
 
-This repo should stay private until the provider/backends have been exercised with real credentials and sample agents.
+This repo should stay private until the integrations have been exercised with real credentials and sample agents.
 
 Before making it public:
 
-- verify Gemini generation and Gemini judge runs end to end
-- verify OpenAI and Claude generation/judge paths on representative language subsets
+- verify Gemini test-case writing and scoring end to end
+- verify OpenAI and Claude writing/scoring paths on representative language subsets
 - verify Langfuse upload/run/status behavior with live credentials
-- add any necessary docs for public users
+- verify LangSmith, OpenAI Evals, Gemini / Vertex AI evaluation, and Claude workflows
 - decide the public license
-
-## Backlog
-
-- Braintrust backend adapter
-- Phoenix backend adapter
-- Promptfoo export/run adapter
 
 ## License
 
