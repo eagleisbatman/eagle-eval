@@ -1,0 +1,59 @@
+app_name: ExampleAgent
+domain: agriculture
+user_persona: smallholder farmer using a basic phone
+
+agent:
+  module: app.agent
+  function: run_conversation
+
+domain_topics:
+  - crop disease
+  - planting schedule
+  - fertilizer
+  - pest control
+  - weather advice
+
+languages:
+  count: 10
+  tier1:
+    - en
+    - hi
+    - sw
+    - fr
+    - pt
+  tier2:
+    - am
+    - ha
+    - yo
+    - ar
+    - bn
+
+prompt_versions:
+  current:
+    router: 1
+    grounding: 1
+    response-gen: 1
+
+synthetic:
+  provider: gemini
+  model: gemini-2.0-flash
+  conversations_per_language: 10
+  turns_per_conversation: 10
+  max_concurrency: 5
+  quality_threshold: 3.5
+
+evaluation:
+  judge_provider: gemini
+  judge_model: gemini-3.1-pro
+  max_concurrency: 5
+  item_timeout_seconds: 120
+  regression_threshold: 0.05
+
+backends:
+  primary: langfuse
+
+langfuse:
+  dataset_prefix: evals
+
+updates:
+  source: "git+https://github.com/YOUR_ORG/eagle-eval.git@main"

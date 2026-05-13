@@ -1,0 +1,258 @@
+"""Generate synthetic multilingual conversations using a configured model provider."""
+
+import json
+import logging
+import random
+import time
+from datetime import datetime, timezone
+from pathlib import Path
+
+log = logging.getLogger(__name__)
+
+
+GENERATION_PROMPT = """You are generating a realistic conversation between a {user_persona} and an AI assistant.
+
+CONTEXT:
+- The user speaks {language_name} ({language_code})
+- Domain: {domain}
+- Primary topic: {topic_name} — {topic_description}
+- Difficulty: {difficulty}
+- Number of user turns to generate: {num_turns}
+
+INSTRUCTIONS:
+- Generate ONLY the user's messages, not the assistant's responses
+- Write ALL messages in {language_name} using natural, colloquial style
+- Do NOT translate from English — think and write natively in {language_name}
+- For "easy": straightforward single-topic questions
+- For "medium": follow-ups requiring context, mild topic drift, some incomplete sentences
+- For "hard": ambiguous queries, code-switching with English, typos, multiple topics in one message
+- Make it realistic: greetings, thanks, confusion, the way a real {user_persona} types on a basic phone
+- Include at least one message that is slightly out of scope or ambiguous
+- Vary message length naturally
+
+OUTPUT FORMAT (strict JSON only, no markdown fences, no preamble):
+{{"conversation_turns": [{{"role": "user", "content": "...message in {language_name}..."}}, ...], "topic_tags": ["{topic_id}"], "difficulty_actual": "{difficulty}", "notes": "Brief English description of the conversation"}}"""
+
+
+def run_generation(config: dict, lang_codes: list[str], proj_dir: Path, verbose: bool = False) -> dict:
+    """Generate synthetic conversations and save to data/synthetic/."""
+    if verbose:
+        logging.basicConfig(level=logging.DEBUG)
+    else:
+        logging.basicConfig(level=logging.INFO)
+
+    data_dir = proj_dir / "data" / "synthetic"
+    data_dir.mkdir(parents=True, exist_ok=True)
+
+    topics = _load_topics(proj_dir / "config" / "topics.json")
+    provider = config["synthetic"].get("provider") or _infer_provider(config["synthetic"]["model"])
+    model = config["synthetic"]["model"]
+    convs_per_lang = config["synthetic"]["conversations_per_language"]
+    turns = config["synthetic"]["turns_per_conversation"]
+    max_concurrency = config["synthetic"].get("max_concurrency", 5)
+    domain = config["domain"]
+    persona = config.get("user_persona", "user")
+
+    from eagle_eval.config import get_language_name
+
+    generated = 0
+    failed = 0
+    sample = None
+    manifest_entries = []
+
+    for lang_code in lang_codes:
+        lang_name = get_language_name(lang_code)
+        lang_dir = data_dir / lang_code
+        lang_dir.mkdir(parents=True, exist_ok=True)
+
+        # Distribute conversations across topics
+        assignments = _assign_topics(topics, convs_per_lang)
+
+        for idx, (topic, difficulty) in enumerate(assignments):
+            conv_id = f"{lang_code}_conv_{idx+1:02d}"
+            out_path = lang_dir / f"{conv_id}.json"
+
+            if out_path.exists():
+                log.info(f"Skipping {conv_id} — already exists")
+                manifest_entries.append(_manifest_entry(conv_id, lang_code, topic, out_path))
+                generated += 1
+                continue
+
+            prompt = GENERATION_PROMPT.format(
+                user_persona=persona,
+                language_name=lang_name,
+                language_code=lang_code,
+                domain=domain,
+                topic_name=topic["name"],
+                topic_description=topic["description"],
+                topic_id=topic["id"],
+                difficulty=difficulty,
+                num_turns=turns,
+            )
+
+            log.info(f"Generating {conv_id} ({lang_name}, {topic['name']}, {difficulty})")
+
+            conversation = _call_llm(provider, model, prompt, retries=3)
+            if conversation is None:
+                log.error(f"Failed to generate {conv_id} after 3 retries")
+                failed += 1
+                continue
+
+            # Enrich and save
+            conversation["conversation_id"] = conv_id
+            conversation["language"] = lang_code
+            conversation["language_name"] = lang_name
+            conversation["primary_topic"] = topic["id"]
+            conversation["difficulty_requested"] = difficulty
+            conversation["generated_by"] = model
+            conversation["generated_at"] = datetime.now(timezone.utc).isoformat()
+
+            out_path.write_text(json.dumps(conversation, indent=2, ensure_ascii=False))
+            manifest_entries.append(_manifest_entry(conv_id, lang_code, topic, out_path))
+            generated += 1
+
+            if sample is None:
+                sample = {
+                    "language": lang_code,
+                    "topic": topic["name"],
+                    "turns": conversation.get("conversation_turns", []),
+                }
+
+            # Rate limiting
+            time.sleep(0.5)
+
+    # Write manifest
+    manifest = {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "model": model,
+        "conversations": manifest_entries,
+    }
+    (data_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False))
+
+    return {"generated": generated, "failed": failed, "sample": sample}
+
+
+def _call_llm(provider: str, model: str, prompt: str, retries: int = 3) -> dict | None:
+    """Call the generation model. Supports Gemini, OpenAI, and Anthropic."""
+    provider = _normalize_provider(provider, model)
+    for attempt in range(retries):
+        try:
+            if provider == "gemini":
+                return _call_gemini(model, prompt)
+            elif provider == "openai":
+                return _call_openai(model, prompt)
+            elif provider == "anthropic":
+                return _call_anthropic(model, prompt)
+            else:
+                raise ValueError(
+                    f"Unsupported generation provider: {provider}. "
+                    "Use gemini, openai, or anthropic."
+                )
+        except json.JSONDecodeError as e:
+            log.warning(f"JSON parse error on attempt {attempt+1}: {e}")
+            time.sleep(2 ** attempt)
+        except Exception as e:
+            log.warning(f"API error on attempt {attempt+1}: {e}")
+            time.sleep(2 ** attempt)
+    return None
+
+
+def _normalize_provider(provider: str | None, model: str) -> str:
+    provider = (provider or _infer_provider(model)).strip().lower()
+    aliases = {
+        "google": "gemini",
+        "google-gemini": "gemini",
+        "claude": "anthropic",
+        "anthropic": "anthropic",
+        "openai": "openai",
+        "gpt": "openai",
+    }
+    return aliases.get(provider, provider)
+
+
+def _infer_provider(model: str) -> str:
+    model = model.lower()
+    if "gemini" in model:
+        return "gemini"
+    if "claude" in model:
+        return "anthropic"
+    if model.startswith(("gpt-", "o1", "o3", "o4")):
+        return "openai"
+    return "unknown"
+
+
+def _call_gemini(model: str, prompt: str) -> dict:
+    """Call Google Gemini API."""
+    try:
+        from google import genai
+        client = genai.Client()
+    except ImportError:
+        from google.generativeai import GenerativeModel
+        gm = GenerativeModel(model)
+        response = gm.generate_content(prompt)
+        return _parse_json_response(response.text)
+
+    response = client.models.generate_content(model=model, contents=prompt)
+    return _parse_json_response(response.text)
+
+
+def _call_openai(model: str, prompt: str) -> dict:
+    """Call OpenAI Responses API."""
+    from openai import OpenAI
+
+    client = OpenAI()
+    response = client.responses.create(model=model, input=prompt)
+    return _parse_json_response(response.output_text)
+
+
+def _call_anthropic(model: str, prompt: str) -> dict:
+    """Call Anthropic API."""
+    import anthropic
+    client = anthropic.Anthropic()
+    response = client.messages.create(
+        model=model,
+        max_tokens=4096,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return _parse_json_response(response.content[0].text)
+
+
+def _parse_json_response(text: str) -> dict:
+    """Parse JSON from LLM response, stripping markdown fences if present."""
+    text = text.strip()
+    if text.startswith("```"):
+        text = text.split("\n", 1)[1] if "\n" in text else text[3:]
+        if text.endswith("```"):
+            text = text[:-3]
+        text = text.strip()
+    return json.loads(text)
+
+
+def _load_topics(topics_path: Path) -> list[dict]:
+    """Load topics from config/topics.json."""
+    if not topics_path.exists():
+        raise FileNotFoundError(f"Topics file not found: {topics_path}. Run 'init' first.")
+    return json.loads(topics_path.read_text())
+
+
+def _assign_topics(topics: list[dict], count: int) -> list[tuple[dict, str]]:
+    """Distribute conversations across topics and difficulties."""
+    assignments = []
+    for topic in topics:
+        dist = topic.get("difficulty_distribution", {"easy": 3, "medium": 5, "hard": 2})
+        total_weight = sum(dist.values())
+        for diff, weight in dist.items():
+            n = max(1, round(count * weight / (total_weight * len(topics))))
+            assignments.extend([(topic, diff)] * n)
+
+    random.shuffle(assignments)
+    return assignments[:count]
+
+
+def _manifest_entry(conv_id: str, lang_code: str, topic: dict, path: Path) -> dict:
+    return {
+        "conversation_id": conv_id,
+        "language": lang_code,
+        "topic": topic["id"],
+        "path": str(path),
+    }

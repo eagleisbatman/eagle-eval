@@ -1,0 +1,158 @@
+"""Run experiments: replay conversations against the agent, score with evaluators."""
+
+import importlib
+import json
+import logging
+from datetime import datetime, timezone
+
+log = logging.getLogger(__name__)
+
+
+def run_experiment(config: dict, lang_codes: list[str], prompt_versions: dict,
+                   concurrency: int, run_prefix: str = "", verbose: bool = False) -> dict:
+    """Run the agent against backend datasets and evaluate."""
+    if verbose:
+        logging.basicConfig(level=logging.DEBUG)
+
+    try:
+        from langfuse import get_client
+    except ImportError as exc:
+        raise RuntimeError(
+            "The Langfuse backend requires the Langfuse extra. "
+            "Install it with: python -m pip install 'eagle-eval[langfuse]'"
+        ) from exc
+    from eagle_eval.evaluators import ITEM_EVALUATORS, RUN_EVALUATORS, configure as configure_evaluators
+
+    lf = get_client()
+    prefix = config.get("langfuse", {}).get("dataset_prefix", "evals")
+    agent_module = config["agent"]["module"]
+    agent_function = config["agent"]["function"]
+    judge_provider = config["evaluation"].get("judge_provider")
+    judge_model = config["evaluation"]["judge_model"]
+    domain = config["domain"]
+    timeout = config["evaluation"].get("item_timeout_seconds", 120)
+
+    configure_evaluators(judge_model=judge_model, judge_provider=judge_provider, domain=domain)
+
+    # Import the agent
+    try:
+        mod = importlib.import_module(agent_module)
+        agent_fn = getattr(mod, agent_function)
+    except (ImportError, AttributeError) as e:
+        raise RuntimeError(
+            f"Cannot import agent: {agent_module}.{agent_function} — {e}\n"
+            f"Make sure the agent module is importable from the current directory."
+        )
+
+    # Fetch prompt objects from the configured backend when supported.
+    prompts = {}
+    for prompt_name, version in prompt_versions.items():
+        try:
+            prompts[prompt_name] = lf.get_prompt(prompt_name, version=version)
+            log.info(f"Fetched prompt '{prompt_name}' v{version}")
+        except Exception as e:
+            log.warning(f"Could not fetch prompt '{prompt_name}' v{version}: {e}")
+            prompts[prompt_name] = None
+
+    # Build the task function
+    def task(*, item, **kwargs):
+        language = item.input.get("language", "en")
+        turns = item.input.get("conversation_turns", [])
+
+        try:
+            result = agent_fn(
+                messages=turns,
+                language=language,
+                prompt_versions=prompt_versions,
+            )
+        except TypeError:
+            # Agent might not accept prompt_versions — try without
+            result = agent_fn(messages=turns, language=language)
+
+        if not isinstance(result, dict):
+            result = {"responses": [str(result)], "tools_called": [], "metadata": {}}
+
+        return result
+
+    # Run per language
+    all_scores = {}
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
+    pv_str = "-".join(f"{k}v{v}" for k, v in sorted(prompt_versions.items()))
+
+    for lang_code in lang_codes:
+        dataset_name = f"{prefix}/{lang_code}/conversations"
+
+        try:
+            dataset = lf.get_dataset(dataset_name)
+        except Exception as e:
+            log.warning(f"Dataset '{dataset_name}' not found: {e}")
+            continue
+
+        run_name_parts = [run_prefix, lang_code, pv_str, timestamp]
+        run_name = "-".join(p for p in run_name_parts if p)
+
+        log.info(f"Running experiment: {run_name} on {dataset_name}")
+
+        try:
+            result = dataset.run_experiment(
+                name=run_name,
+                task=task,
+                evaluators=ITEM_EVALUATORS,
+                # Note: run_evaluators support depends on backend SDK version
+                # If not supported, run-level aggregation happens in the compare script
+                max_concurrency=concurrency,
+                metadata={
+                    "prompt_versions": prompt_versions,
+                    "language": lang_code,
+                    "agent": f"{agent_module}.{agent_function}",
+                },
+            )
+
+            # Extract scores from result
+            lang_scores = _extract_scores(result)
+            all_scores[lang_code] = lang_scores
+
+            log.info(f"Completed {run_name}: {json.dumps(lang_scores)}")
+
+        except Exception as e:
+            log.error(f"Experiment failed for {lang_code}: {e}")
+            all_scores[lang_code] = {"error": str(e)}
+
+    lf.flush()
+
+    return {"scores": all_scores, "prompt_versions": prompt_versions, "timestamp": timestamp}
+
+
+def _extract_scores(result) -> dict:
+    """Extract average scores from an experiment result object."""
+    scores = {}
+
+    # The result object's structure depends on backend SDK version
+    # Try the format() approach first for display, then extract numerics
+    try:
+        if hasattr(result, "scores") and result.scores:
+            for score_name, score_val in result.scores.items():
+                if isinstance(score_val, (int, float)):
+                    scores[score_name] = round(float(score_val), 3)
+                elif hasattr(score_val, "mean"):
+                    scores[score_name] = round(float(score_val.mean), 3)
+    except Exception:
+        pass
+
+    # Fallback: try to get from individual item results
+    if not scores:
+        try:
+            if hasattr(result, "experiment_items"):
+                from collections import defaultdict
+                score_lists = defaultdict(list)
+                for item in result.experiment_items:
+                    if hasattr(item, "evaluations"):
+                        for ev in item.evaluations:
+                            if ev.value is not None:
+                                score_lists[ev.name].append(ev.value)
+                for name, vals in score_lists.items():
+                    scores[name] = round(sum(vals) / len(vals), 3)
+        except Exception as e:
+            log.warning(f"Could not extract item-level scores: {e}")
+
+    return scores

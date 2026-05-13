@@ -1,0 +1,110 @@
+"""Upload quality-gated conversations to the configured eval backend."""
+
+import json
+import logging
+from pathlib import Path
+
+log = logging.getLogger(__name__)
+
+
+def run_upload(config: dict, lang_codes: list[str], data_dir: Path,
+               recreate: bool = False, dry_run: bool = False, verbose: bool = False) -> dict:
+    """Upload conversations to Langfuse datasets."""
+    if verbose:
+        logging.basicConfig(level=logging.DEBUG)
+
+    prefix = config.get("langfuse", {}).get("dataset_prefix", "evals")
+
+    if not dry_run:
+        try:
+            from langfuse import get_client
+        except ImportError as exc:
+            raise RuntimeError(
+                "The Langfuse backend requires the Langfuse extra. "
+                "Install it with: python -m pip install 'eagle-eval[langfuse]'"
+            ) from exc
+        lf = get_client()
+
+    results = {"datasets": {}, "total_items": 0}
+
+    for lang_code in lang_codes:
+        lang_dir = data_dir / lang_code
+        if not lang_dir.exists():
+            log.warning(f"No data directory for {lang_code}, skipping")
+            continue
+
+        conversations = _load_passed_conversations(lang_dir)
+        if not conversations:
+            log.warning(f"No passed conversations for {lang_code}, skipping")
+            continue
+
+        dataset_name = f"{prefix}/{lang_code}/conversations"
+
+        if dry_run:
+            log.info(f"[dry-run] Would create dataset '{dataset_name}' with {len(conversations)} items")
+            results["datasets"][dataset_name] = len(conversations)
+            results["total_items"] += len(conversations)
+            continue
+
+        # Create or get dataset
+        if recreate:
+            try:
+                lf.api.datasets.delete(dataset_name=dataset_name)
+                log.info(f"Deleted existing dataset: {dataset_name}")
+            except Exception:
+                pass
+
+        lf.create_dataset(name=dataset_name, description=f"Eval conversations for {lang_code}")
+
+        item_count = 0
+        for conv in conversations:
+            turns = conv.get("conversation_turns", [])
+            expected_topics = conv.get("topic_tags", [conv.get("primary_topic", "general")])
+
+            lf.create_dataset_item(
+                dataset_name=dataset_name,
+                input={
+                    "language": lang_code,
+                    "conversation_turns": turns,
+                },
+                expected_output={
+                    "expected_topics": expected_topics,
+                    "expected_language": lang_code,
+                    "min_turns_responded": max(1, int(len(turns) * 0.8)),
+                },
+                metadata={
+                    "language": lang_code,
+                    "language_name": conv.get("language_name", lang_code),
+                    "conversation_id": conv.get("conversation_id", "unknown"),
+                    "primary_topic": conv.get("primary_topic", "general"),
+                    "difficulty": conv.get("difficulty_actual", conv.get("difficulty_requested", "medium")),
+                    "quality_score": conv.get("quality_score", None),
+                    "generated_by": conv.get("generated_by", "unknown"),
+                },
+            )
+            item_count += 1
+            log.debug(f"Uploaded {conv.get('conversation_id')} to {dataset_name}")
+
+        results["datasets"][dataset_name] = item_count
+        results["total_items"] += item_count
+        log.info(f"{dataset_name}: {item_count} items uploaded")
+
+    # Flush
+    if not dry_run:
+        lf.flush()
+
+    return results
+
+
+def _load_passed_conversations(lang_dir: Path) -> list[dict]:
+    """Load conversations that passed quality gate."""
+    conversations = []
+    for json_file in sorted(lang_dir.glob("*.json")):
+        try:
+            conv = json.loads(json_file.read_text())
+            status = conv.get("quality_status", "passed")  # default to passed if no gate was run
+            if status in ("passed", "flagged"):  # include flagged — they're borderline, not bad
+                conversations.append(conv)
+        except (json.JSONDecodeError, KeyError) as e:
+            log.warning(f"Skipping {json_file}: {e}")
+    return conversations

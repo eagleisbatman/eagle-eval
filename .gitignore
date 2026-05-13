@@ -1,0 +1,9 @@
+data/synthetic/**/*.json
+!data/synthetic/.gitkeep
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+.DS_Store
+.pytest_cache/
+eval_config.yaml
