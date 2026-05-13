@@ -18,6 +18,7 @@ eagle-eval gate
 eagle-eval upload
 eagle-eval run --languages tier1
 eagle-eval compare --baseline '{"router":13}' --candidate '{"router":14}'
+eagle-eval context view
 eagle-eval status
 eagle-eval install-assistants --tool all --yes
 eagle-eval update --dry-run
@@ -29,6 +30,8 @@ Every command has `--help`. All config lives in `eval_config.yaml`. All commands
 
 - Eagle Eval is the product; integration names should not define the product identity.
 - `eval_config.yaml` is the single source of truth for agent module, prompt names, languages, test-case writer, scorer, and result destination.
+- `app_context` defines the product use case and North Star. Do not evaluate as a generic chatbot when this context exists.
+- Custom scoring functions are declared in `scoring.custom_metrics` with `module:function` paths owned by the evaluated project.
 - Gemini is the default broad multilingual test-case writer and scorer.
 - OpenAI and Claude are valid writer/scorer services where their language coverage fits the target eval set.
 - Braintrust, Phoenix, and Promptfoo are deferred items only for now.

@@ -18,6 +18,8 @@ CONTEXT:
 - Primary topic: {topic_name} — {topic_description}
 - Difficulty: {difficulty}
 - Number of user turns to generate: {num_turns}
+- App North Star: {north_star_name} — {north_star_definition}
+- Resolution policy: {resolution_policy}
 
 INSTRUCTIONS:
 - Generate ONLY the user's messages, not the assistant's responses
@@ -29,9 +31,11 @@ INSTRUCTIONS:
 - Make it realistic: greetings, thanks, confusion, the way a real {user_persona} types on a basic phone
 - Include at least one message that is slightly out of scope or ambiguous
 - Vary message length naturally
+- Pick the expected scenario from: answerable_now, unclear_intent, missing_critical_context, unsafe_or_high_risk
+- Set expected_next_action to one of: answer, ask_clarification, confirm, refuse_or_escalate
 
 OUTPUT FORMAT (strict JSON only, no markdown fences, no preamble):
-{{"conversation_turns": [{{"role": "user", "content": "...message in {language_name}..."}}, ...], "topic_tags": ["{topic_id}"], "difficulty_actual": "{difficulty}", "notes": "Brief English description of the conversation"}}"""
+{{"conversation_turns": [{{"role": "user", "content": "...message in {language_name}..."}}, ...], "topic_tags": ["{topic_id}"], "difficulty_actual": "{difficulty}", "scenario": "missing_critical_context", "expected_next_action": "ask_clarification", "required_clarification_slots": ["crop", "location"], "resolution_goal": "Brief description of what resolved means for this case", "notes": "Brief English description of the conversation"}}"""
 
 
 def run_generation(config: dict, lang_codes: list[str], proj_dir: Path, verbose: bool = False) -> dict:
@@ -53,6 +57,9 @@ def run_generation(config: dict, lang_codes: list[str], proj_dir: Path, verbose:
     max_concurrency = test_cases.get("max_concurrency", 5)
     domain = config["domain"]
     persona = config.get("user_persona", "user")
+    app_context = config["app_context"]
+    north_star = app_context.get("north_star", {})
+    resolution_policy = app_context.get("resolution_policy", {})
 
     from eagle_eval.config import get_language_name
 
@@ -89,6 +96,9 @@ def run_generation(config: dict, lang_codes: list[str], proj_dir: Path, verbose:
                 topic_id=topic["id"],
                 difficulty=difficulty,
                 num_turns=turns,
+                north_star_name=north_star.get("name", "unknown"),
+                north_star_definition=north_star.get("definition", ""),
+                resolution_policy=json.dumps(resolution_policy, ensure_ascii=False),
             )
 
             log.info(f"Generating {conv_id} ({lang_name}, {topic['name']}, {difficulty})")

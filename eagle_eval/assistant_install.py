@@ -46,6 +46,7 @@ Use Eagle Eval when the user asks to create, check, run, compare, or explain age
 ## First Checks
 
 - Run `eagle-eval doctor` before live runs so missing SDKs, keys, and config are visible.
+- Run `eagle-eval context view` before judging quality so the app use case and North Star are visible.
 - Use `eagle-eval generate --dry-run`, `eagle-eval gate --dry-run`, or `eagle-eval run --dry-run` before commands that call paid APIs or a real agent.
 - Never overwrite generated data unless the user asks for it.
 
@@ -62,6 +63,8 @@ Use Eagle Eval when the user asks to create, check, run, compare, or explain age
 - Test-case writer: the model service that creates eval conversations.
 - Scorer: the model service or deterministic code that grades agent outputs.
 - Result destination: the product workspace where datasets, runs, traces, and scores are stored.
+- App context: the app use case, user, North Star, and resolution policy that make scoring domain-specific.
+- Custom metric: a developer-owned `module:function` scorer listed in `scoring.custom_metrics`.
 """
 
 
@@ -77,6 +80,8 @@ Key terms:
 - Test-case writer: creates realistic multilingual eval cases.
 - Scorer: grades the agent output using code checks or a stronger model.
 - Result destination: stores datasets, experiment runs, traces, and scores.
+- App context: defines the product use case and North Star so scoring is not generic.
+- Custom metric: a developer-owned scorer declared in `scoring.custom_metrics`.
 
 Prefer dry runs before commands that call paid APIs or external services.
 """
@@ -93,12 +98,14 @@ Use this skill whenever the user asks about agent evals, multilingual test cases
 
 Workflow:
 1. Inspect the current config with `eagle-eval doctor`.
-2. Explain what will happen before running commands that call APIs or the real agent.
-3. Use dry-run commands first unless the user clearly asks for a live run.
-4. Keep the user-facing outcome clear: generated test cases, quality report, scored runs, and regression comparison.
+2. Inspect the product use case with `eagle-eval context view`.
+3. Explain what will happen before running commands that call APIs or the real agent.
+4. Use dry-run commands first unless the user clearly asks for a live run.
+5. Keep the user-facing outcome clear: generated test cases, quality report, scored runs, and regression comparison.
 
 Commands:
 - `eagle-eval doctor`
+- `eagle-eval context view`
 - `eagle-eval generate --languages tier1`
 - `eagle-eval gate`
 - `eagle-eval upload`

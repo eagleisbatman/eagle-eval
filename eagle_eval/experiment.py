@@ -3,13 +3,15 @@
 import importlib
 import json
 import logging
+from pathlib import Path
 from datetime import datetime, timezone
 
 log = logging.getLogger(__name__)
 
 
 def run_experiment(config: dict, lang_codes: list[str], prompt_versions: dict,
-                   concurrency: int, run_prefix: str = "", verbose: bool = False) -> dict:
+                   concurrency: int, run_prefix: str = "", verbose: bool = False,
+                   project_dir: Path | None = None) -> dict:
     """Run the agent against stored datasets and evaluate."""
     if verbose:
         logging.basicConfig(level=logging.DEBUG)
@@ -28,9 +30,11 @@ def run_experiment(config: dict, lang_codes: list[str], prompt_versions: dict,
             "The Langfuse result destination requires the Langfuse extra. "
             "Install it with: python -m pip install 'eagle-eval[langfuse]'"
         ) from exc
-    from eagle_eval.evaluators import ITEM_EVALUATORS, RUN_EVALUATORS, configure as configure_evaluators
+    from eagle_eval.custom_scoring import load_custom_evaluators
+    from eagle_eval.evaluators import get_item_evaluators, configure as configure_evaluators
 
     lf = get_client()
+    project_dir = project_dir or Path.cwd()
     prefix = config.get("langfuse", {}).get("dataset_prefix", "evals")
     agent_module = config["agent"]["module"]
     agent_function = config["agent"]["function"]
@@ -39,7 +43,14 @@ def run_experiment(config: dict, lang_codes: list[str], prompt_versions: dict,
     domain = config["domain"]
     timeout = config["scoring"].get("item_timeout_seconds", 120)
 
-    configure_evaluators(scorer_model=scorer_model, scorer=scorer, domain=domain)
+    custom_evaluators = load_custom_evaluators(config, project_dir)
+    configure_evaluators(
+        scorer_model=scorer_model,
+        scorer=scorer,
+        domain=domain,
+        app_context=config["app_context"],
+        custom_evaluators=custom_evaluators,
+    )
 
     # Import the agent
     try:
@@ -104,7 +115,7 @@ def run_experiment(config: dict, lang_codes: list[str], prompt_versions: dict,
             result = dataset.run_experiment(
                 name=run_name,
                 task=task,
-                evaluators=ITEM_EVALUATORS,
+                evaluators=get_item_evaluators(),
                 # Note: run_evaluators support depends on the installed SDK version.
                 # If not supported, run-level aggregation happens in the compare script
                 max_concurrency=concurrency,

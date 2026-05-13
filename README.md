@@ -50,6 +50,79 @@ Agent-run scores measure the actual agent output:
 
 OpenAI's grader guidance also uses 0 to 1 grades, Langfuse supports numeric, categorical, boolean, and text scores, LangSmith evaluator feedback contains a metric key plus score/value and optional comment, Vertex AI supports model-based and computation-based metrics, and Claude recommends code-based, human, and LLM-based grading depending on reliability needs.
 
+## App Context
+
+Eagle Eval is meant to score your app, not a generic chatbot. Put the app's use case and North Star in `app_context`:
+
+```yaml
+app_context:
+  product: Agriculture advisory assistant
+  user: smallholder farmer using a basic phone
+  north_star:
+    name: monthly_unique_farmer_queries_resolved
+    definition: >
+      A farmer query is resolved when the assistant either gives a safe,
+      actionable answer or correctly asks for the minimum clarification needed
+      and then resolves the query after clarification.
+  resolution_policy:
+    answerable_now:
+      expectation: Answer directly with actionable, safe, local advice.
+    unclear_intent:
+      expectation: Ask a focused clarification question instead of guessing.
+    missing_critical_context:
+      expectation: Ask for crop, location, symptom, stage, timing, or other minimum missing facts needed to answer safely.
+    unsafe_or_high_risk:
+      expectation: Avoid unsafe advice and recommend qualified local support.
+```
+
+View it any time:
+
+```bash
+eagle-eval context view
+```
+
+`doctor` also shows the app context and North Star so builders can quickly confirm what the eval is really optimizing.
+
+## Custom Scorers
+
+Developers can add domain-specific metrics from their own project without editing Eagle Eval. Configure a metric:
+
+```yaml
+scoring:
+  scorer: gemini
+  scorer_model: gemini-3.1-pro
+  custom_metrics:
+    - name: farmer_query_resolution
+      path: eval_scorers.farmer_resolution:score
+      weight: 0.45
+      required: true
+```
+
+Then create the scorer in the evaluated project:
+
+```python
+# eval_scorers/farmer_resolution.py
+
+def score(input, output, expected_output, metadata, context):
+    responses = output.get("responses", [])
+    scenario = metadata.get("scenario") or expected_output.get("scenario")
+
+    if scenario == "unclear_intent":
+        value = 1.0 if any("?" in str(response) for response in responses) else 0.0
+        comment = "Asked for clarification" if value else "Guessed instead of clarifying"
+    else:
+        value = 1.0 if responses else 0.0
+        comment = "Produced an answer" if value else "No answer"
+
+    return {
+        "name": "farmer_query_resolution",
+        "value": value,
+        "comment": f"{comment}; North Star={context['north_star']['name']}",
+    }
+```
+
+A custom scorer receives `input`, `output`, `expected_output`, `metadata`, and `context`. It can return a number, boolean, `{"value": ..., "comment": ...}`, or an `Evaluation` object.
+
 ## Install
 
 ```bash
@@ -138,6 +211,13 @@ All commands support `--help`, `--dry-run`, and `--verbose`. Use `--project-dir 
 ## Config Shape
 
 ```yaml
+app_context:
+  product: Agriculture advisory assistant
+  user: smallholder farmer using a basic phone
+  north_star:
+    name: monthly_unique_farmer_queries_resolved
+    definition: Farmer query resolved after safe answer or needed clarification.
+
 test_cases:
   writer: gemini
   writer_model: gemini-2.0-flash
@@ -145,6 +225,9 @@ test_cases:
 scoring:
   scorer: gemini
   scorer_model: gemini-3.1-pro
+  custom_metrics:
+    - name: farmer_query_resolution
+      path: eval_scorers.farmer_resolution:score
 
 results:
   destination: langfuse

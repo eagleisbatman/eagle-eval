@@ -142,11 +142,44 @@ def init(dry_run, verbose):
 
     convs_per_lang = click.prompt("  Conversations per language", default=10, type=int)
     turns_per_conv = click.prompt("  Turns per conversation", default=10, type=int)
+    north_star_name = (
+        "monthly_unique_farmer_queries_resolved"
+        if domain.strip().lower() == "agriculture"
+        else "monthly_unique_user_queries_resolved"
+    )
+    north_star_definition = (
+        "A farmer query is resolved when the assistant either gives a safe, actionable answer "
+        "or correctly asks for the minimum clarification needed and then resolves the query after clarification."
+        if domain.strip().lower() == "agriculture"
+        else "A user query is resolved when the assistant gives a safe, correct, actionable answer or asks the minimum clarification needed to resolve it."
+    )
 
     config = {
         "app_name": app_name,
         "domain": domain,
         "user_persona": user_persona,
+        "app_context": {
+            "product": f"{domain.title()} advisory assistant",
+            "user": user_persona,
+            "north_star": {
+                "name": north_star_name,
+                "definition": north_star_definition,
+            },
+            "resolution_policy": {
+                "answerable_now": {
+                    "expectation": "Answer directly with actionable, safe, local advice.",
+                },
+                "unclear_intent": {
+                    "expectation": "Ask a focused clarification question instead of guessing.",
+                },
+                "missing_critical_context": {
+                    "expectation": "Ask for the minimum missing facts needed to answer safely.",
+                },
+                "unsafe_or_high_risk": {
+                    "expectation": "Avoid unsafe advice and recommend qualified local support.",
+                },
+            },
+        },
         "agent": {
             "module": agent_module,
             "function": agent_function,
@@ -363,7 +396,7 @@ def run(languages, prompt_versions, max_concurrency, dry_run, verbose):
         _warn("Dry run — agent will not be called")
         return
 
-    results = run_experiment(config, lang_codes, pv, concurrency, verbose=verbose)
+    results = run_experiment(config, lang_codes, pv, concurrency, verbose=verbose, project_dir=_project_dir())
 
     _heading("Results")
     _print_results_table(results)
@@ -404,10 +437,14 @@ def compare(baseline, candidate, languages, output, dry_run, verbose):
     from eagle_eval.experiment import run_experiment
 
     _log("\n  Running baseline...", bold=True)
-    baseline_results = run_experiment(config, lang_codes, baseline_pv, concurrency, run_prefix="baseline", verbose=verbose)
+    baseline_results = run_experiment(
+        config, lang_codes, baseline_pv, concurrency, run_prefix="baseline", verbose=verbose, project_dir=_project_dir()
+    )
 
     _log("\n  Running candidate...", bold=True)
-    candidate_results = run_experiment(config, lang_codes, candidate_pv, concurrency, run_prefix="candidate", verbose=verbose)
+    candidate_results = run_experiment(
+        config, lang_codes, candidate_pv, concurrency, run_prefix="candidate", verbose=verbose, project_dir=_project_dir()
+    )
 
     _heading("Comparison")
     regressions = _print_comparison_table(baseline_results, candidate_results, threshold)
@@ -508,7 +545,11 @@ def doctor(verbose):
         test_cases = config.get("test_cases", {})
         scoring = config.get("scoring", {})
         results = config.get("results", {})
+        app_context = config.get("app_context", {})
+        north_star = app_context.get("north_star", {})
         _log("  Config roles:")
+        _log(f"    App context:      {app_context.get('product', '?')}")
+        _log(f"    North Star:       {north_star.get('name', '?')}")
         _log(f"    Test-case writer: {test_cases.get('writer', '?')} ({test_cases.get('writer_model', '?')})")
         _log(f"    Scorer:           {scoring.get('scorer', '?')} ({scoring.get('scorer_model', '?')})")
         _log(f"    Result destination: {results.get('destination', '?')}")
@@ -538,11 +579,55 @@ def doctor(verbose):
             _log(f"      Env: {env}")
             _log(f"      Docs: {item['docs_url']}")
 
+    if config:
+        from eagle_eval.custom_scoring import check_custom_metrics
+
+        custom_statuses = check_custom_metrics(config, _project_dir())
+        if custom_statuses:
+            _log("\n  Custom metrics:")
+            for status in custom_statuses:
+                if status.ok:
+                    _ok(f"{status.name}: {status.path}")
+                else:
+                    _warn(f"{status.name}: {status.path} ({status.error})")
+
     _log("\n  What a completed eval gives you:")
     _log("    - generated multilingual test cases under data/synthetic/")
     _log("    - quality_report.json showing which test cases are ready")
     _log("    - scored agent runs with per-language metrics")
     _log("    - a regression decision when comparing prompt/model versions")
+
+
+# ─── context ────────────────────────────────────────────────────────────────
+
+@cli.group("context")
+def context_group():
+    """View the product context used by scorers."""
+
+
+@context_group.command("view")
+@click.option("--json-output", is_flag=True, help="Print the raw app_context JSON")
+def context_view(json_output):
+    """Show the app use case, North Star, and resolution policy."""
+    config = _load_config()
+    app_context = config["app_context"]
+    if json_output:
+        _log(json.dumps(app_context, indent=2, ensure_ascii=False))
+        return
+
+    north_star = app_context.get("north_star", {})
+    _heading("App Context")
+    _log(f"  Product:    {app_context.get('product', config.get('app_name'))}")
+    _log(f"  User:       {app_context.get('user', config.get('user_persona'))}")
+    _log(f"  North Star: {north_star.get('name')}")
+    _log(f"  Definition: {north_star.get('definition')}")
+
+    policy = app_context.get("resolution_policy", {})
+    if policy:
+        _log("\n  Resolution policy:")
+        for scenario, details in policy.items():
+            expectation = details.get("expectation") if isinstance(details, dict) else str(details)
+            _log(f"    - {scenario}: {expectation}")
 
 
 # ─── install-assistants ─────────────────────────────────────────────────────

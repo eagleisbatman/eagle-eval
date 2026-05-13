@@ -79,7 +79,18 @@ def load_config(config_path: Path) -> dict:
     if not isinstance(config, dict):
         raise ValueError("eval_config.yaml must contain a YAML mapping/object")
 
-    required_keys = ["app_name", "domain", "agent", "languages", "prompt_versions", "test_cases", "scoring", "results"]
+    required_keys = [
+        "app_name",
+        "domain",
+        "user_persona",
+        "app_context",
+        "agent",
+        "languages",
+        "prompt_versions",
+        "test_cases",
+        "scoring",
+        "results",
+    ]
     missing = [k for k in required_keys if k not in config]
     if missing:
         raise ValueError(f"Missing required config keys: {missing}")
@@ -104,6 +115,23 @@ def load_config(config_path: Path) -> dict:
 
     if "scorer" not in config["scoring"] or "scorer_model" not in config["scoring"]:
         raise ValueError("scoring.scorer and scoring.scorer_model are required in config")
+
+    if not isinstance(config["app_context"], dict):
+        raise ValueError("app_context must be a mapping")
+    north_star = config["app_context"].get("north_star")
+    if not isinstance(north_star, dict) or "name" not in north_star or "definition" not in north_star:
+        raise ValueError("app_context.north_star.name and app_context.north_star.definition are required")
+
+    custom_metrics = config["scoring"].get("custom_metrics", [])
+    if custom_metrics is None:
+        custom_metrics = []
+    if not isinstance(custom_metrics, list):
+        raise ValueError("scoring.custom_metrics must be a list")
+    for index, metric in enumerate(custom_metrics):
+        if not isinstance(metric, dict):
+            raise ValueError(f"scoring.custom_metrics[{index}] must be a mapping")
+        if "name" not in metric or "path" not in metric:
+            raise ValueError(f"scoring.custom_metrics[{index}] requires name and path")
 
     if "destination" not in config["results"]:
         raise ValueError("results.destination is required in config")
