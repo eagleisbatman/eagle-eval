@@ -6,6 +6,7 @@ import importlib
 import json
 import sys
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -56,32 +57,19 @@ def run_local_experiment(
     for lang_code in lang_codes:
         lang_items = _load_items(project_dir, config, lang_code)
         score_lists: dict[str, list[float]] = defaultdict(list)
+        processed_items = _run_language_items(
+            lang_code=lang_code,
+            items=lang_items,
+            agent_fn=agent_fn,
+            prompt_versions=prompt_versions,
+            evaluators=evaluators,
+            concurrency=concurrency,
+        )
 
-        for item in lang_items:
-            output = _call_agent(agent_fn, item["input"], prompt_versions)
-            evaluations = []
-            for evaluator in evaluators:
-                evaluation = evaluator(
-                    input=item["input"],
-                    output=output,
-                    expected_output=item["expected_output"],
-                    metadata=item["metadata"],
-                )
-                evaluations.append(_evaluation_payload(evaluation))
-                if evaluation.value is not None:
-                    score_lists[evaluation.name].append(float(evaluation.value))
-
-            item_results.append(
-                {
-                    "language": lang_code,
-                    "conversation_id": item["metadata"].get("conversation_id"),
-                    "input": item["input"],
-                    "expected_output": item["expected_output"],
-                    "metadata": item["metadata"],
-                    "output": output,
-                    "evaluations": evaluations,
-                }
-            )
+        for item_result, score_values in processed_items:
+            item_results.append(item_result)
+            for score_name, value in score_values.items():
+                score_lists[score_name].append(value)
 
         all_scores[lang_code] = {
             name: round(sum(values) / len(values), 3)
@@ -117,6 +105,69 @@ def run_local_experiment(
             "items": len(item_results),
         },
     }
+
+
+def _run_language_items(
+    *,
+    lang_code: str,
+    items: list[dict],
+    agent_fn,
+    prompt_versions: dict,
+    evaluators: list,
+    concurrency: int,
+) -> list[tuple[dict, dict[str, float]]]:
+    max_workers = max(1, int(concurrency or 1))
+    if max_workers == 1 or len(items) <= 1:
+        return [
+            _score_item(lang_code, item, agent_fn, prompt_versions, evaluators)
+            for item in items
+        ]
+
+    ordered_results: list[tuple[dict, dict[str, float]] | None] = [None] * len(items)
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(_score_item, lang_code, item, agent_fn, prompt_versions, evaluators): index
+            for index, item in enumerate(items)
+        }
+        for future in as_completed(futures):
+            ordered_results[futures[future]] = future.result()
+
+    return [result for result in ordered_results if result is not None]
+
+
+def _score_item(
+    lang_code: str,
+    item: dict,
+    agent_fn,
+    prompt_versions: dict,
+    evaluators: list,
+) -> tuple[dict, dict[str, float]]:
+    output = _call_agent(agent_fn, item["input"], prompt_versions)
+    evaluations = []
+    score_values: dict[str, float] = {}
+    for evaluator in evaluators:
+        evaluation = evaluator(
+            input=item["input"],
+            output=output,
+            expected_output=item["expected_output"],
+            metadata=item["metadata"],
+        )
+        evaluations.append(_evaluation_payload(evaluation))
+        if evaluation.value is not None:
+            score_values[evaluation.name] = float(evaluation.value)
+
+    return (
+        {
+            "language": lang_code,
+            "conversation_id": item["metadata"].get("conversation_id"),
+            "input": item["input"],
+            "expected_output": item["expected_output"],
+            "metadata": item["metadata"],
+            "output": output,
+            "evaluations": evaluations,
+        },
+        score_values,
+    )
 
 
 def write_local_datasets(

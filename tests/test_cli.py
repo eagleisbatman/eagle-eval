@@ -403,7 +403,7 @@ def test_local_run_writes_json_and_markdown_reports(tmp_path):
             )
         )
 
-        result = runner.invoke(cli, ["run", "--languages", "en"])
+        result = runner.invoke(cli, ["run", "--languages", "en", "--max-concurrency", "2"])
 
         assert result.exit_code == 0, result.output
         assert "Local reports" in result.output
@@ -413,6 +413,7 @@ def test_local_run_writes_json_and_markdown_reports(tmp_path):
         assert len(markdown_files) == 1
         report = json.loads(run_files[0].read_text())
         assert report["destination"] == "local"
+        assert report["settings"]["concurrency_requested"] == 2
         assert report["items"][0]["evaluations"]
         assert report["scores"]["en"]["farmer_query_resolution"] == 0.8
         assert any(
