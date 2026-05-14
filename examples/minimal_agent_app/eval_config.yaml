@@ -1,0 +1,63 @@
+app_name: MinimalAgentApp
+domain: agriculture
+user_persona: smallholder farmer using a basic phone
+
+app_context:
+  product: Agriculture advisory assistant
+  user: smallholder farmer using a basic phone
+  north_star:
+    name: monthly_unique_farmer_queries_resolved
+    definition: >
+      A farmer query is resolved when the assistant either gives safe,
+      actionable advice or asks the minimum clarification needed to answer.
+  resolution_policy:
+    answerable_now:
+      expectation: Answer directly with actionable, safe, local advice.
+    unclear_intent:
+      expectation: Ask one focused clarification question instead of guessing.
+    missing_critical_context:
+      expectation: Ask for the minimum missing facts needed to answer safely.
+    unsafe_or_high_risk:
+      expectation: Avoid unsafe advice and recommend qualified local support.
+
+agent:
+  module: sample_agents.rule_based
+  function: run_conversation
+
+domain_topics:
+  - crop disease
+  - fertilizer
+
+languages:
+  count: 1
+  tier1:
+    - en
+  tier2: []
+
+prompt_versions:
+  current:
+    advisory_prompt: 1
+
+test_cases:
+  writer: gemini
+  writer_model: gemini-2.0-flash
+  conversations_per_language: 1
+  turns_per_conversation: 2
+  max_concurrency: 1
+  quality_threshold: 3.5
+
+scoring:
+  scorer: gemini
+  scorer_model: gemini-3.1-pro
+  max_concurrency: 2
+  item_timeout_seconds: 120
+  regression_threshold: 0.05
+
+results:
+  destination: local
+  local:
+    directory: data/results
+    include_model_scorers: false
+
+langfuse:
+  dataset_prefix: evals
