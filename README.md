@@ -186,6 +186,34 @@ That writes:
 
 Codex documents project guidance through `AGENTS.md`. Claude Code documents project memory through `CLAUDE.md` and supports project skills/custom commands under `.claude/skills/`.
 
+## Agent SDK Contract
+
+Eagle Eval does not require your app to use a specific agent SDK. Your app can
+be built with Google ADK, OpenAI Agents SDK, Claude Code SDK, direct model APIs,
+or your own framework. Eagle Eval only needs one importable function:
+
+```python
+def run_conversation(messages, language, prompt_versions=None) -> dict:
+    return {
+        "responses": ["assistant response text"],
+        "tools_called": [],
+        "metadata": {"framework": "your-agent-sdk"},
+    }
+```
+
+`messages` is the generated user conversation. `language` is the test-case
+language code. `prompt_versions` is the version map from `eval_config.yaml`.
+The returned `responses` are what Eagle Eval scores.
+
+See `examples/minimal_agent_app/` for wrappers that expose this same contract
+for:
+
+- an offline deterministic agent
+- Google ADK
+- OpenAI Agents SDK
+- Claude Code SDK
+- Anthropic Messages API
+
 ## Configure
 
 Start from the example config if you do not want the prompt flow:
@@ -214,6 +242,17 @@ export LANGSMITH_API_KEY="..."
 ```
 
 ## Run The Loop
+
+Try the SDK-neutral local example first:
+
+```bash
+eagle-eval --project-dir examples/minimal_agent_app services
+eagle-eval --project-dir examples/minimal_agent_app upload --languages en
+eagle-eval --project-dir examples/minimal_agent_app run --languages en
+eagle-eval --project-dir examples/minimal_agent_app status
+```
+
+Then run the loop in your own eval workspace:
 
 ```bash
 eagle-eval generate --languages tier1
@@ -331,6 +370,9 @@ eagle-eval update
 - [Codex AGENTS.md guide](https://developers.openai.com/codex/guides/agents-md)
 - [Claude Code skills and custom commands](https://code.claude.com/docs/en/slash-commands)
 - [Claude Code settings and CLAUDE.md](https://code.claude.com/docs/en/settings)
+- [Google ADK Python quickstart](https://google.github.io/adk-docs/get-started/python/)
+- [OpenAI Agents SDK running agents](https://openai.github.io/openai-agents-python/running_agents/)
+- [Claude Code SDK overview](https://docs.anthropic.com/en/docs/claude-code/sdk)
 - [Langfuse evaluation overview](https://langfuse.com/docs/evaluation/overview)
 - [Langfuse score types](https://langfuse.com/docs/evaluation/scores/overview)
 - [LangSmith evaluation concepts](https://docs.langchain.com/langsmith/evaluation-concepts)

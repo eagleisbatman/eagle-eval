@@ -1,0 +1,26 @@
+{
+  "conversation_id": "en_conv_01",
+  "language": "en",
+  "language_name": "English",
+  "primary_topic": "crop_disease",
+  "topic_tags": ["crop_disease"],
+  "difficulty_requested": "easy",
+  "difficulty_actual": "easy",
+  "quality_status": "passed",
+  "quality_score": 4.5,
+  "scenario": "missing_critical_context",
+  "expected_next_action": "ask_clarification",
+  "required_clarification_slots": ["crop", "location", "symptom"],
+  "resolution_goal": "Ask for the crop and symptom context before recommending treatment.",
+  "generated_by": "handwritten-example",
+  "conversation_turns": [
+    {
+      "role": "user",
+      "content": "My maize leaves are turning yellow and I do not know what to do."
+    },
+    {
+      "role": "user",
+      "content": "Can I spray something today?"
+    }
+  ]
+}

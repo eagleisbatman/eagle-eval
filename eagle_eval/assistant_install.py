@@ -73,6 +73,7 @@ Use Eagle Eval when the user asks to create, check, run, compare, or explain age
 - Result destination: where datasets, run output, score summaries, and debug context are stored. Local files are the default.
 - App context: the app use case, user, North Star, and resolution policy that make scoring domain-specific.
 - Custom metric: a developer-owned `module:function` scorer listed in `scoring.custom_metrics`.
+- Agent wrapper: the SDK-neutral `run_conversation(messages, language, prompt_versions=None)` function Eagle Eval imports.
 """
 
 
@@ -90,6 +91,7 @@ Key terms:
 - Result destination: stores datasets, run output, score summaries, and debug context. Local files are the default.
 - App context: defines the product use case and North Star so scoring is not generic.
 - Custom metric: a developer-owned scorer declared in `scoring.custom_metrics`.
+- Agent wrapper: the SDK-neutral `run_conversation(messages, language, prompt_versions=None)` function Eagle Eval imports.
 
 Prefer dry runs before commands that call paid APIs or external services.
 """
