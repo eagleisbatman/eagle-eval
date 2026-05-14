@@ -606,6 +606,58 @@ def doctor(verbose):
     if config and str(config.get("results", {}).get("destination", "")).strip().lower() == "local":
         local_dir = config.get("results", {}).get("local", {}).get("directory", "data/results")
         _log(f"    - local JSON and Markdown reports under {local_dir}/runs/")
+    _log("\n  To inspect configured services before live calls:")
+    _log("    - eagle-eval services --verbose")
+
+
+# ─── services ───────────────────────────────────────────────────────────────
+
+@cli.command("services")
+@click.option("--json-output", is_flag=True, help="Print machine-readable service readiness")
+@click.option("--verbose", is_flag=True, help="Show package, env, purpose, and docs details")
+def services(json_output, verbose):
+    """Show the services used for test writing, scoring, and result storage."""
+    config = _load_optional_config()
+    if not config:
+        if json_output:
+            _log("[]")
+            return
+        _heading("Configured Services")
+        _warn("No eval_config.yaml found. Run 'eagle-eval init' first.")
+        return
+
+    from eagle_eval.integrations import check_configured_services
+
+    statuses = check_configured_services(config)
+    if json_output:
+        _log(json.dumps(statuses, indent=2, ensure_ascii=False))
+        return
+
+    _heading("Configured Services")
+    for status in statuses:
+        label = status["label"]
+        role = status["role"]
+        marker = _ok if status["ready"] else _warn
+        state = "ready" if status["ready"] else ("planned" if not status["supported"] else "needs setup")
+        marker(f"{role}: {label} ({state})")
+        if status.get("model"):
+            _log(f"    Model: {status['model']}")
+        _log(f"    Config value: {status.get('configured_as') or status['service']}")
+        for issue in status["issues"]:
+            _log(f"    - {issue}")
+
+        if verbose:
+            packages = _format_readiness_map(status["packages"], ok_label="ok", missing_label="missing")
+            env = _format_readiness_map(status["env"], ok_label="set", missing_label="missing")
+            _log(f"    Purpose: {status['purpose']}")
+            _log(f"    Packages: {packages or 'none required'}")
+            _log(f"    Env: {env or 'none required'}")
+            _log(f"    Docs: {status['docs_url'] or 'not available'}")
+
+    if all(status["ready"] for status in statuses):
+        _ok("\nAll configured services are ready for live commands.")
+    else:
+        _warn("\nFix the setup items above before commands that call paid APIs or hosted services.")
 
 
 # ─── context ────────────────────────────────────────────────────────────────
@@ -859,6 +911,13 @@ def _parse_json_object(value, option_name):
     if not isinstance(parsed, dict):
         raise click.BadParameter("must be a JSON object", param_hint=option_name)
     return parsed
+
+
+def _format_readiness_map(values: dict, ok_label: str, missing_label: str) -> str:
+    return ", ".join(
+        f"{name}={ok_label if ok else missing_label}"
+        for name, ok in values.items()
+    )
 
 
 def _self_update(source, pre, dry_run, verbose):

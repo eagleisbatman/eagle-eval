@@ -8,6 +8,7 @@ This project provides the Eagle Eval CLI for local-first agent evaluation. Local
 cd eagle-eval && python -m pip install -e ".[dev,gemini]"
 eagle-eval init
 eagle-eval doctor
+eagle-eval services --verbose
 ```
 
 ## Commands
@@ -22,6 +23,7 @@ eagle-eval context view
 eagle-eval scorer list
 eagle-eval scorer init farmer_query_resolution --sample
 eagle-eval scorer test farmer_query_resolution --sample examples/scorer_sample.json
+eagle-eval services
 eagle-eval status
 eagle-eval install-assistants --tool all --yes
 eagle-eval update --dry-run
@@ -34,6 +36,7 @@ Every command has `--help`. All config lives in `eval_config.yaml`. All commands
 - Eagle Eval is the product; integration names should not define the product identity.
 - `eval_config.yaml` is the single source of truth for agent module, prompt names, languages, test-case writer, scorer, and result destination.
 - `results.destination: local` should work without hosted-service credentials and should write inspectable files under `results.local.directory`.
+- `eagle-eval services` should clearly explain the configured test-case writer, scoring service, and result storage readiness before paid or hosted calls.
 - `app_context` defines the product use case and North Star. Do not evaluate as a generic chatbot when this context exists.
 - Custom scoring functions are declared in `scoring.custom_metrics` with `module:function` paths owned by the evaluated project.
 - Gemini is the default broad multilingual test-case writer and scorer.

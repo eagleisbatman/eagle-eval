@@ -46,6 +46,7 @@ Use Eagle Eval when the user asks to create, check, run, compare, or explain age
 ## First Checks
 
 - Run `eagle-eval doctor` before live runs so missing SDKs, keys, and config are visible.
+- Run `eagle-eval services --verbose` before paid APIs or hosted result storage so the exact configured services are visible.
 - Run `eagle-eval context view` before judging quality so the app use case and North Star are visible.
 - Use `eagle-eval generate --dry-run`, `eagle-eval gate --dry-run`, or `eagle-eval run --dry-run` before commands that call paid APIs or a real agent.
 - Never overwrite generated data unless the user asks for it.
@@ -63,6 +64,7 @@ Use Eagle Eval when the user asks to create, check, run, compare, or explain age
 - `eagle-eval scorer list` shows configured metrics and starter templates.
 - `eagle-eval scorer init farmer_query_resolution --sample` creates a project-owned scorer.
 - `eagle-eval scorer test farmer_query_resolution --sample examples/scorer_sample.json` runs the scorer locally.
+- `eagle-eval services --verbose` shows test-case writer, scoring service, and result storage readiness.
 
 ## Product Vocabulary
 
@@ -111,6 +113,7 @@ Workflow:
 
 Commands:
 - `eagle-eval doctor`
+- `eagle-eval services --verbose`
 - `eagle-eval context view`
 - `eagle-eval scorer list`
 - `eagle-eval scorer init farmer_query_resolution --sample`

@@ -194,10 +194,11 @@ Start from the example config if you do not want the prompt flow:
 cp examples/eval_config.example.yaml eval_config.yaml
 ```
 
-Use `doctor` before live or provider-backed runs:
+Use `doctor` before live or service-backed runs:
 
 ```bash
 eagle-eval doctor --verbose
+eagle-eval services --verbose
 ```
 
 Local result files do not require service keys. Set only the keys for the services you use:
@@ -224,10 +225,27 @@ eagle-eval compare \
   --candidate '{"router":14}'
 eagle-eval context view
 eagle-eval scorer list
+eagle-eval services
 eagle-eval status
 ```
 
 All commands support `--help`, `--dry-run`, and `--verbose`. Use `--project-dir /path/to/project` when the installed CLI should read or write a specific eval workspace instead of the current directory.
+
+## Check Services
+
+Before calling paid APIs or hosted result storage, run:
+
+```bash
+eagle-eval services --verbose
+```
+
+It shows the exact services configured for three roles:
+
+- test-case writer: creates synthetic conversations
+- scoring service: grades generated test cases and agent outputs
+- result storage: stores datasets, run output, score summaries, and debug context
+
+For each role, the command reports SDK installation, required env vars, and whether that service is active for the role today or planned for later. Local result storage requires no service keys.
 
 ## Local Results
 

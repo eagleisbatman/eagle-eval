@@ -181,6 +181,61 @@ def test_doctor_explains_config_roles(tmp_path):
         assert "Result destination: local" in result.output
         assert "local JSON and Markdown reports under data/results/runs/" in result.output
         assert "What a completed eval gives you" in result.output
+        assert "eagle-eval services --verbose" in result.output
+
+
+def test_services_shows_configured_roles_and_missing_setup(tmp_path, monkeypatch):
+    import eagle_eval.integrations as integrations
+
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        write_config(Path("eval_config.yaml"))
+        monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+        monkeypatch.setattr(integrations, "_has_package", lambda package: False)
+
+        result = runner.invoke(cli, ["services"])
+
+        assert result.exit_code == 0, result.output
+        assert "Test-case writer: Gemini" in result.output
+        assert "Scoring service: Gemini" in result.output
+        assert "Result storage: Local files (ready)" in result.output
+        assert "Missing SDK: google.genai" in result.output
+        assert "Missing env: GOOGLE_API_KEY" in result.output
+        assert "Fix the setup items above" in result.output
+
+
+def test_services_json_normalizes_anthropic_to_claude(tmp_path, monkeypatch):
+    import eagle_eval.integrations as integrations
+
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        write_config(Path("eval_config.yaml"), destination="langfuse")
+        config_path = Path("eval_config.yaml")
+        config_path.write_text(
+            config_path.read_text()
+            .replace("  writer: gemini", "  writer: openai")
+            .replace("  writer_model: gemini-2.0-flash", "  writer_model: gpt-4.1-mini")
+            .replace("  scorer: gemini", "  scorer: anthropic")
+            .replace("  scorer_model: gemini-3.1-pro", "  scorer_model: claude-sonnet-4-5")
+        )
+        monkeypatch.setattr(integrations, "_has_package", lambda package: True)
+        monkeypatch.setenv("OPENAI_API_KEY", "test")
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "test")
+        monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "test")
+        monkeypatch.setenv("LANGFUSE_SECRET_KEY", "test")
+        monkeypatch.setenv("LANGFUSE_HOST", "https://cloud.langfuse.com")
+
+        result = runner.invoke(cli, ["services", "--json-output"])
+
+        assert result.exit_code == 0, result.output
+        payload = json.loads(result.output)
+        assert payload[0]["service"] == "openai"
+        assert payload[0]["ready"] is True
+        assert payload[1]["service"] == "claude"
+        assert payload[1]["label"] == "Claude"
+        assert payload[1]["ready"] is True
+        assert payload[2]["service"] == "langfuse"
+        assert payload[2]["ready"] is True
 
 
 def test_install_assistants_writes_codex_and_claude_helpers(tmp_path):
