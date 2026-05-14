@@ -805,25 +805,31 @@ def scorer_test(name, sample_path):
 
 @cli.command("install-assistants")
 @click.option("--tool", type=click.Choice(["all", "codex", "claude"]), default="all", show_default=True)
+@click.option("--scope", type=click.Choice(["project", "global"]), default="project", show_default=True, help="Install into this project or the user's global skill directory")
 @click.option("--yes", is_flag=True, help="Write files without asking for confirmation")
 @click.option("--force", is_flag=True, help="Overwrite existing helper files")
-def install_assistants(tool, yes, force):
+def install_assistants(tool, scope, yes, force):
     """Install Codex and Claude Code helper files for this eval workflow."""
     project_dir = _project_dir()
+    home_dir = Path.home().expanduser().resolve()
     _heading("Install Assistant Helpers")
     _log(f"  Project dir: {project_dir}")
     _log(f"  Target: {tool}")
+    _log(f"  Scope: {scope}")
+    if scope == "global":
+        _log(f"  Home dir: {home_dir}")
 
     if not yes:
-        if not click.confirm("  Write project helper files?", default=True):
+        target_description = "global skill files" if scope == "global" else "project helper files"
+        if not click.confirm(f"  Write {target_description}?", default=True):
             _log("  No files written.")
             return
 
     from eagle_eval.assistant_install import install_assistant_support
 
-    actions = install_assistant_support(project_dir, tool=tool, force=force)
+    actions = install_assistant_support(project_dir, tool=tool, scope=scope, force=force, home_dir=home_dir)
     for action in actions:
-        rel = action.path.relative_to(project_dir)
+        rel = _display_path(action.path, project_dir, home_dir)
         if action.status == "skipped":
             _warn(f"Skipped existing {rel} (use --force to overwrite)")
         elif action.status == "updated":
@@ -918,6 +924,17 @@ def _format_readiness_map(values: dict, ok_label: str, missing_label: str) -> st
         f"{name}={ok_label if ok else missing_label}"
         for name, ok in values.items()
     )
+
+
+def _display_path(path: Path, project_dir: Path, home_dir: Path) -> str:
+    resolved = path.expanduser().resolve()
+    for base, prefix in ((project_dir, ""), (home_dir, "~/")):
+        try:
+            rel = resolved.relative_to(base)
+            return f"{prefix}{rel}" if prefix else str(rel)
+        except ValueError:
+            continue
+    return str(resolved)
 
 
 def _self_update(source, pre, dry_run, verbose):

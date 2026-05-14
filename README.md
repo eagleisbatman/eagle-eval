@@ -172,7 +172,7 @@ Create `eval_config.yaml`:
 eagle-eval init
 ```
 
-Install project helper files for both coding agents:
+Install skills and project helper files for both coding agents:
 
 ```bash
 eagle-eval install-assistants --tool all --yes
@@ -181,10 +181,22 @@ eagle-eval install-assistants --tool all --yes
 That writes:
 
 - `AGENTS.md` for Codex project instructions
+- `.codex/skills/eagle-eval/SKILL.md` for a Codex project skill
 - `CLAUDE.md` for Claude Code project memory
 - `.claude/skills/eagle-eval/SKILL.md` for a Claude Code `/eagle-eval` workflow
 
-Codex documents project guidance through `AGENTS.md`. Claude Code documents project memory through `CLAUDE.md` and supports project skills/custom commands under `.claude/skills/`.
+For one-project installs, use the default project scope. For reusable installs
+available across agentic development projects, use global scope:
+
+```bash
+eagle-eval install-assistants --tool codex --scope global --yes
+eagle-eval install-assistants --tool claude --scope global --yes
+```
+
+Global scope writes to `~/.codex/skills/eagle-eval/SKILL.md` and
+`~/.claude/skills/eagle-eval/SKILL.md`. Project scope writes inside the current
+repo. Codex documents repo-specific guidance through `AGENTS.md`; Claude Code
+documents repo-specific memory through `CLAUDE.md`.
 
 ## Agent SDK Contract
 

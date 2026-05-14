@@ -12,17 +12,29 @@ class InstallAction:
     status: str
 
 
-def install_assistant_support(project_dir: Path, tool: str = "all", force: bool = False) -> list[InstallAction]:
-    """Write Codex and Claude Code helper files into a project."""
+def install_assistant_support(
+    project_dir: Path,
+    tool: str = "all",
+    scope: str = "project",
+    force: bool = False,
+    home_dir: Path | None = None,
+) -> list[InstallAction]:
+    """Write Codex and Claude Code helper files."""
     project_dir = project_dir.expanduser().resolve()
+    home_dir = (home_dir or Path.home()).expanduser().resolve()
     actions: list[InstallAction] = []
 
     if tool in ("all", "codex"):
-        actions.append(_write(project_dir / "AGENTS.md", _agents_md(), force=force))
+        codex_root = project_dir / ".codex" if scope == "project" else home_dir / ".codex"
+        actions.append(_write(codex_root / "skills" / "eagle-eval" / "SKILL.md", _codex_skill(), force=force))
+        if scope == "project":
+            actions.append(_write(project_dir / "AGENTS.md", _agents_md(), force=force))
 
     if tool in ("all", "claude"):
-        actions.append(_write(project_dir / "CLAUDE.md", _claude_md(), force=force))
-        actions.append(_write(project_dir / ".claude" / "skills" / "eagle-eval" / "SKILL.md", _claude_skill(), force=force))
+        claude_root = project_dir / ".claude" if scope == "project" else home_dir / ".claude"
+        actions.append(_write(claude_root / "skills" / "eagle-eval" / "SKILL.md", _claude_skill(), force=force))
+        if scope == "project":
+            actions.append(_write(project_dir / "CLAUDE.md", _claude_md(), force=force))
 
     return actions
 
@@ -77,6 +89,65 @@ Use Eagle Eval when the user asks to create, check, run, compare, or explain age
 """
 
 
+def _codex_skill() -> str:
+    return """
+---
+name: eagle-eval
+description: Operate Eagle Eval from Codex for local-first agent evaluation, scoring, reports, and regression checks.
+---
+
+# Eagle Eval
+
+Use this skill whenever the user asks Codex to set up, run, inspect, compare, or improve agent evaluations.
+
+## Operating Model
+
+Eagle Eval is a CLI execution engine. Codex is the interface.
+
+- Inspect the repository first. Find the agent entrypoint, prompts, tools, README, routes, and deployment config.
+- Derive app context from the source when possible.
+- Ask the user only for missing product context: target users, North Star metric, failure cases, and supported languages.
+- Do not require the user to hand-edit YAML; create or update `eval_config.yaml` yourself.
+- If an agent wrapper is needed, expose `run_conversation(messages, language, prompt_versions=None)`.
+- Prefer local results first.
+- Ask before large multilingual generation or paid API calls.
+- Never print secrets back to the user.
+
+## Safe Credential Handling
+
+If the user provides service keys in chat, place them in a local ignored file such as `.env.eagle-eval`.
+Make sure `.env.eagle-eval` is ignored by git. Store service names and models in `eval_config.yaml`, not secrets.
+Use `eagle-eval services --verbose` and `eagle-eval doctor` to report set/missing state without revealing values.
+
+## Commands
+
+- `eagle-eval doctor`
+- `eagle-eval services --verbose`
+- `eagle-eval context view`
+- `eagle-eval upload --languages en`
+- `eagle-eval run --languages en`
+- `eagle-eval status`
+- `eagle-eval scorer list`
+- `eagle-eval scorer init farmer_query_resolution --sample`
+- `eagle-eval scorer test farmer_query_resolution --sample examples/scorer_sample.json`
+- `eagle-eval compare --baseline '{"router":13}' --candidate '{"router":14}'`
+
+## Recommended User Prompts
+
+```text
+Set up Eagle Eval for this repo. Inspect the codebase, find the agent entrypoint, create the eval config, add any needed wrapper, install Codex/Claude instructions, and keep results local first. Ask me only for missing product context.
+```
+
+```text
+Run a small local Eagle Eval for English only. Use the current agent behavior, inspect the latest report, and explain failures in terms of user outcomes.
+```
+
+```text
+Configure Eagle Eval with these credentials. Store them safely in the local ignored Eagle Eval env file. Do not print the secrets back to me. Then run eagle-eval doctor and tell me what is ready.
+```
+"""
+
+
 def _claude_md() -> str:
     return """
 # Eagle Eval
@@ -104,14 +175,24 @@ name: eagle-eval
 description: Plan, run, and explain Eagle Eval workflows for this project
 ---
 
-Use this skill whenever the user asks about agent evals, multilingual test cases, scoring, regressions, or Eagle Eval.
+Use this skill whenever the user asks Claude Code to set up, run, inspect, compare, or improve agent evaluations.
 
-Workflow:
-1. Inspect the current config with `eagle-eval doctor`.
-2. Inspect the product use case with `eagle-eval context view`.
-3. Explain what will happen before running commands that call APIs or the real agent.
-4. Use dry-run commands first unless the user clearly asks for a live run.
-5. Keep the user-facing outcome clear: generated test cases, quality report, scored runs, and regression comparison.
+Operating model:
+- Eagle Eval is a CLI execution engine. Claude Code is the interface.
+- Inspect the repository first. Find the agent entrypoint, prompts, tools, README, routes, and deployment config.
+- Derive app context from the source when possible.
+- Ask the user only for missing product context: target users, North Star metric, failure cases, and supported languages.
+- Do not require the user to hand-edit YAML; create or update `eval_config.yaml` yourself.
+- If an agent wrapper is needed, expose `run_conversation(messages, language, prompt_versions=None)`.
+- Prefer local results first.
+- Ask before large multilingual generation or paid API calls.
+- Never print secrets back to the user.
+
+Safe credential handling:
+- If the user provides service keys in chat, place them in a local ignored file such as `.env.eagle-eval`.
+- Make sure `.env.eagle-eval` is ignored by git.
+- Store service names and models in `eval_config.yaml`, not secrets.
+- Use `eagle-eval services --verbose` and `eagle-eval doctor` to report set/missing state without revealing values.
 
 Commands:
 - `eagle-eval doctor`
@@ -125,6 +206,19 @@ Commands:
 - `eagle-eval upload`
 - `eagle-eval run --languages tier1`
 - `eagle-eval compare --baseline '{"router":13}' --candidate '{"router":14}'`
+
+Recommended user prompts:
+```text
+Set up Eagle Eval for this repo. Inspect the codebase, find the agent entrypoint, create the eval config, add any needed wrapper, install Codex/Claude instructions, and keep results local first. Ask me only for missing product context.
+```
+
+```text
+Run a small local Eagle Eval for English only. Use the current agent behavior, inspect the latest report, and explain failures in terms of user outcomes.
+```
+
+```text
+Configure Eagle Eval with these credentials. Store them safely in the local ignored Eagle Eval env file. Do not print the secrets back to me. Then run eagle-eval doctor and tell me what is ready.
+```
 
 Scoring model:
 - `language_consistency`: 0 or 1, based on whether the response language matches the test case.

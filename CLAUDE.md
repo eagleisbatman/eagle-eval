@@ -26,6 +26,7 @@ eagle-eval scorer test farmer_query_resolution --sample examples/scorer_sample.j
 eagle-eval services
 eagle-eval status
 eagle-eval install-assistants --tool all --yes
+eagle-eval install-assistants --tool claude --scope global --yes
 eagle-eval update --dry-run
 ```
 
@@ -34,6 +35,7 @@ Every command has `--help`. All config lives in `eval_config.yaml`. All commands
 ## Key Constraints
 
 - Eagle Eval is the product; integration names should not define the product identity.
+- Codex and Claude skills can be installed per project or globally with `eagle-eval install-assistants --scope project|global`.
 - `eval_config.yaml` is the single source of truth for agent module, prompt names, languages, test-case writer, scorer, and result destination.
 - `results.destination: local` should work without hosted-service credentials and should write inspectable files under `results.local.directory`.
 - `eagle-eval services` should clearly explain the configured test-case writer, scoring service, and result storage readiness before paid or hosted calls.
