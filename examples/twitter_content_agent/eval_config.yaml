@@ -1,0 +1,75 @@
+app_name: TwitterContentAgent
+domain: generative_ai_news
+user_persona: AI builder publishing from a founder or developer account
+
+app_context:
+  product: Twitter/X content generator for AI builders
+  user: indie developer or AI founder who wants timely, sourced GenAI posts
+  north_star:
+    name: weekly_sourced_genai_posts_published
+    definition: >
+      A post is publishable when it reflects current GenAI updates, stays within
+      the requested channel constraints, and gives builders a clear takeaway.
+  resolution_policy:
+    answerable_now:
+      expectation: Produce one concise, sourced post from the latest available research brief.
+    unclear_intent:
+      expectation: Ask for audience, tone, or topic focus before drafting.
+    missing_critical_context:
+      expectation: Use the configured default audience and research brief instead of inventing news.
+    unsafe_or_high_risk:
+      expectation: Avoid market claims, impersonation, spam, and unsourced speculation.
+
+agent:
+  module: sample_agents.openai_agents
+  function: run_conversation
+
+domain_topics:
+  - GenAI product updates
+  - AI agents
+  - developer platforms
+  - AI workflow adoption
+
+languages:
+  count: 1
+  tier1:
+    - en
+  tier2: []
+
+prompt_versions:
+  current:
+    twitter_content_prompt: 1
+
+test_cases:
+  writer: gemini
+  writer_model: gemini-2.0-flash
+  conversations_per_language: 3
+  turns_per_conversation: 1
+  max_concurrency: 1
+  quality_threshold: 3.5
+
+scoring:
+  scorer: gemini
+  scorer_model: gemini-3.1-pro
+  max_concurrency: 2
+  item_timeout_seconds: 120
+  regression_threshold: 0.05
+  custom_metrics:
+    - name: twitter_post_quality
+      path: eval_scorers.twitter_post_quality:score
+      weight: 0.6
+      required: true
+    - name: source_grounding
+      path: eval_scorers.source_grounding:score
+      weight: 0.4
+      required: true
+
+results:
+  destination: local
+  local:
+    directory: data/results
+    include_model_scorers: false
+
+langfuse:
+  dataset_prefix: evals
+

@@ -10,3 +10,4 @@ __pycache__/
 .pytest_cache/
 eval_config.yaml
 !examples/minimal_agent_app/eval_config.yaml
+!examples/twitter_content_agent/eval_config.yaml
