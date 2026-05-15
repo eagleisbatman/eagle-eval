@@ -1,5 +1,7 @@
 data/synthetic/**/*.json
 !data/synthetic/.gitkeep
+data/results/
+examples/**/data/results/
 __pycache__/
 *.pyc
 .venv/

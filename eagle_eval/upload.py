@@ -82,6 +82,16 @@ def run_upload(config: dict, lang_codes: list[str], data_dir: Path,
         for conv in conversations:
             turns = conv.get("conversation_turns", [])
             expected_topics = conv.get("topic_tags", [conv.get("primary_topic", "general")])
+            expected_output = {
+                "expected_topics": expected_topics,
+                "expected_language": lang_code,
+                "min_turns_responded": max(1, int(len(turns) * 0.8)),
+                "scenario": conv.get("scenario"),
+                "expected_next_action": conv.get("expected_next_action"),
+                "required_clarification_slots": conv.get("required_clarification_slots", []),
+                "resolution_goal": conv.get("resolution_goal"),
+            }
+            expected_output.update(conv.get("expected_output") or {})
 
             lf.create_dataset_item(
                 dataset_name=dataset_name,
@@ -89,15 +99,7 @@ def run_upload(config: dict, lang_codes: list[str], data_dir: Path,
                     "language": lang_code,
                     "conversation_turns": turns,
                 },
-                expected_output={
-                    "expected_topics": expected_topics,
-                    "expected_language": lang_code,
-                    "min_turns_responded": max(1, int(len(turns) * 0.8)),
-                    "scenario": conv.get("scenario"),
-                    "expected_next_action": conv.get("expected_next_action"),
-                    "required_clarification_slots": conv.get("required_clarification_slots", []),
-                    "resolution_goal": conv.get("resolution_goal"),
-                },
+                expected_output=expected_output,
                 metadata={
                     "language": lang_code,
                     "language_name": conv.get("language_name", lang_code),

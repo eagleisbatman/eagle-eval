@@ -1,6 +1,7 @@
 """CLI entry point. All commands support --dry-run and --verbose."""
 
 import click
+import copy
 import json
 import sys
 import os
@@ -371,15 +372,22 @@ def upload(languages, recreate, dry_run, verbose):
 @cli.command()
 @click.option("--languages", default="tier1", help="Comma-separated ISO codes, or 'tier1', 'tier2', 'all'")
 @click.option("--prompt-versions", default=None, help='JSON string like \'{"router":14,"grounding":3}\'. Defaults to current from config.')
+@click.option("--agent-module", default=None, help="Override agent.module for this run without editing eval_config.yaml")
+@click.option("--agent-function", default=None, help="Override agent.function for this run without editing eval_config.yaml")
+@click.option("--run-prefix", default="", help="Prefix local/hosted run names, useful when replaying one dataset across agents")
 @click.option("--max-concurrency", default=None, type=int, help="Override config concurrency")
 @click.option("--dry-run", is_flag=True)
 @click.option("--verbose", is_flag=True)
-def run(languages, prompt_versions, max_concurrency, dry_run, verbose):
+def run(languages, prompt_versions, agent_module, agent_function, run_prefix, max_concurrency, dry_run, verbose):
     """Run agent against eval datasets and score with evaluators."""
-    config = _load_config()
+    config = copy.deepcopy(_load_config())
     from eagle_eval.experiment import run_experiment
 
     lang_codes = _resolve_languages(config, languages)
+    if agent_module:
+        config["agent"]["module"] = agent_module
+    if agent_function:
+        config["agent"]["function"] = agent_function
 
     pv = (
         _parse_json_object(prompt_versions, "--prompt-versions")
@@ -395,12 +403,22 @@ def run(languages, prompt_versions, max_concurrency, dry_run, verbose):
     _log(f"  Prompt versions: {json.dumps(pv)}")
     _log(f"  Concurrency: {concurrency}")
     _log(f"  Agent: {config['agent']['module']}.{config['agent']['function']}")
+    if run_prefix:
+        _log(f"  Run prefix: {run_prefix}")
 
     if dry_run:
         _warn("Dry run — agent will not be called")
         return
 
-    results = run_experiment(config, lang_codes, pv, concurrency, verbose=verbose, project_dir=_project_dir())
+    results = run_experiment(
+        config,
+        lang_codes,
+        pv,
+        concurrency,
+        run_prefix=run_prefix,
+        verbose=verbose,
+        project_dir=_project_dir(),
+    )
 
     _heading("Results")
     _print_results_table(results)

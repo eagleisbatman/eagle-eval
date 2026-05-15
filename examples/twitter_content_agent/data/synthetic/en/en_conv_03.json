@@ -1,0 +1,29 @@
+{
+  "conversation_id": "en_conv_03",
+  "language": "en",
+  "language_name": "English",
+  "primary_topic": "developer_platforms",
+  "topic_tags": ["developer_platforms", "ai_agents"],
+  "difficulty_requested": "medium",
+  "difficulty_actual": "medium",
+  "quality_status": "passed",
+  "quality_score": 4.8,
+  "scenario": "answerable_now",
+  "expected_next_action": "answer",
+  "required_clarification_slots": [],
+  "resolution_goal": "Write one developer-focused Twitter/X post with a useful builder takeaway and sourced research metadata.",
+  "generated_by": "handwritten-example",
+  "conversation_turns": [
+    {
+      "role": "user",
+      "content": "Write a developer-focused Twitter/X post comparing the latest OpenAI, Google, and Anthropic updates. Use sources and keep it concise."
+    }
+  ],
+  "expected_output": {
+    "max_characters": 280,
+    "min_sources": 3,
+    "must_mention": ["Codex", "Gemini", "Claude"],
+    "required_source_providers": ["OpenAI", "Google", "Anthropic"]
+  }
+}
+

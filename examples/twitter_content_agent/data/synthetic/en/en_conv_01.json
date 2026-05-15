@@ -1,0 +1,29 @@
+{
+  "conversation_id": "en_conv_01",
+  "language": "en",
+  "language_name": "English",
+  "primary_topic": "genai_product_updates",
+  "topic_tags": ["genai_product_updates", "ai_agents"],
+  "difficulty_requested": "medium",
+  "difficulty_actual": "medium",
+  "quality_status": "passed",
+  "quality_score": 4.7,
+  "scenario": "answerable_now",
+  "expected_next_action": "answer",
+  "required_clarification_slots": [],
+  "resolution_goal": "Write one publishable Twitter/X post about the latest GenAI updates for AI builders.",
+  "generated_by": "handwritten-example",
+  "conversation_turns": [
+    {
+      "role": "user",
+      "content": "Research the latest Generative AI product updates and write one Twitter/X post for AI builders. Keep it under 280 characters and avoid hype."
+    }
+  ],
+  "expected_output": {
+    "max_characters": 280,
+    "min_sources": 2,
+    "must_mention": ["Codex", "Gemini", "Claude"],
+    "required_source_providers": ["OpenAI", "Google", "Anthropic"]
+  }
+}
+

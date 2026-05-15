@@ -226,6 +226,11 @@ for:
 - Claude Code SDK
 - Anthropic Messages API
 
+See `examples/twitter_content_agent/` for a richer dogfood sample: a
+research-backed Twitter/X content generator that drafts a post from current
+Generative AI updates and can be replayed through Google ADK, OpenAI Agents SDK,
+and Claude Code SDK wrappers.
+
 ## Configure
 
 Start from the example config if you do not want the prompt flow:

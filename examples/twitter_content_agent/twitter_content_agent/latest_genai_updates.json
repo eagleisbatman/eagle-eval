@@ -1,0 +1,72 @@
+{
+  "updated_at": "2026-05-15T13:00:00+05:30",
+  "curated_from": [
+    "https://openai.com/index/work-with-codex-from-anywhere/",
+    "https://blog.google/products-and-platforms/platforms/android/gemini-intelligence/",
+    "https://www.anthropic.com/news/gates-foundation-partnership",
+    "https://www.anthropic.com/news/claude-for-small-business"
+  ],
+  "items": [
+    {
+      "provider": "OpenAI",
+      "title": "Work with Codex from anywhere",
+      "published_at": "2026-05-14",
+      "url": "https://openai.com/index/work-with-codex-from-anywhere/",
+      "summary": "OpenAI put Codex into the ChatGPT mobile app preview so developers can follow, steer, approve, and continue coding-agent work from a phone.",
+      "signals": [
+        "agentic development is becoming ambient",
+        "mobile review and approval loops matter",
+        "local credentials stay on the developer machine"
+      ]
+    },
+    {
+      "provider": "Anthropic",
+      "title": "Anthropic forms $200 million partnership with the Gates Foundation",
+      "published_at": "2026-05-14",
+      "url": "https://www.anthropic.com/news/gates-foundation-partnership",
+      "summary": "Anthropic and the Gates Foundation announced funding, Claude credits, technical support, datasets, and benchmarks for global health, education, economic mobility, and agriculture programs.",
+      "signals": [
+        "frontier AI is moving into public-good deployments",
+        "domain benchmarks and datasets are part of responsible rollout",
+        "agriculture-specific improvements are planned as public goods"
+      ]
+    },
+    {
+      "provider": "Anthropic",
+      "title": "Introducing Claude for Small Business",
+      "published_at": "2026-05-13",
+      "url": "https://www.anthropic.com/news/claude-for-small-business",
+      "summary": "Anthropic launched Claude for Small Business with connectors and ready-to-run workflows across tools like QuickBooks, PayPal, HubSpot, Canva, Docusign, Google Workspace, and Microsoft 365.",
+      "signals": [
+        "AI value is shifting from chat to approved workflows",
+        "small-business workflows need trust and permissions",
+        "skills and connectors package repeated work"
+      ]
+    },
+    {
+      "provider": "Google",
+      "title": "A smarter, more proactive Android with Gemini Intelligence",
+      "published_at": "2026-05-12",
+      "url": "https://blog.google/products-and-platforms/platforms/android/gemini-intelligence/",
+      "summary": "Google announced Gemini Intelligence for Android, including app automation, smarter Chrome browsing, intelligent form filling, custom widgets, and speech-to-polished-text features.",
+      "signals": [
+        "AI is becoming an operating-system layer",
+        "multistep mobile task automation is moving mainstream",
+        "user control and opt-in context matter"
+      ]
+    },
+    {
+      "provider": "OpenAI",
+      "title": "Advancing voice intelligence with new models in the API",
+      "published_at": "2026-05-07",
+      "url": "https://openai.com/index/advancing-voice-intelligence-with-new-models-in-the-api/",
+      "summary": "OpenAI introduced realtime voice, translation, and transcription models for voice agents that reason, use tools, translate live, and transcribe low-latency speech.",
+      "signals": [
+        "voice agents are becoming workflow interfaces",
+        "live translation and transcription are developer primitives",
+        "agentic competence needs safety guardrails"
+      ]
+    }
+  ]
+}
+

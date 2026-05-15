@@ -2,6 +2,7 @@
 
 import json
 import logging
+import threading
 import time
 
 try:
@@ -22,6 +23,7 @@ _SCORER = None
 _DOMAIN = None
 _APP_CONTEXT = {}
 _CUSTOM_EVALUATORS = []
+_LANGDETECT_LOCK = threading.Lock()
 
 
 def configure(
@@ -55,9 +57,10 @@ def language_consistency(*, input, output, expected_output, metadata, **kwargs):
         return Evaluation(name="language_consistency", value=0.0, comment="Responses too short")
 
     try:
-        from langdetect import detect, DetectorFactory
-        DetectorFactory.seed = 0
-        detected = detect(combined)
+        with _LANGDETECT_LOCK:
+            from langdetect import detect, DetectorFactory
+            DetectorFactory.seed = 0
+            detected = detect(combined)
         match = detected.split("-")[0] == expected_lang.split("-")[0]
         return Evaluation(
             name="language_consistency",

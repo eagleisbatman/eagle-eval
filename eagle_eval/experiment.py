@@ -3,6 +3,7 @@
 import importlib
 import json
 import logging
+import sys
 from pathlib import Path
 from datetime import datetime, timezone
 
@@ -67,6 +68,8 @@ def run_experiment(config: dict, lang_codes: list[str], prompt_versions: dict,
 
     # Import the agent
     try:
+        _ensure_importable(project_dir)
+        _remove_stale_project_modules(agent_module, str(project_dir.expanduser().resolve()))
         mod = importlib.import_module(agent_module)
         agent_fn = getattr(mod, agent_function)
     except (ImportError, AttributeError) as e:
@@ -152,6 +155,28 @@ def run_experiment(config: dict, lang_codes: list[str], prompt_versions: dict,
     lf.flush()
 
     return {"scores": all_scores, "prompt_versions": prompt_versions, "timestamp": timestamp}
+
+
+def _ensure_importable(project_dir: Path) -> None:
+    project_path = str(project_dir.expanduser().resolve())
+    if project_path not in sys.path:
+        sys.path.insert(0, project_path)
+    importlib.invalidate_caches()
+
+
+def _remove_stale_project_modules(module_name: str, project_path: str) -> None:
+    package_name = module_name.split(".", 1)[0]
+    package = sys.modules.get(package_name)
+    if package is None:
+        return
+
+    package_paths = [str(Path(path).resolve()) for path in getattr(package, "__path__", [])]
+    if any(path.startswith(project_path) for path in package_paths):
+        return
+
+    for loaded_name in list(sys.modules):
+        if loaded_name == package_name or loaded_name.startswith(f"{package_name}."):
+            del sys.modules[loaded_name]
 
 
 def _extract_scores(result) -> dict:

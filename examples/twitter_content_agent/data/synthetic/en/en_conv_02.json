@@ -1,0 +1,29 @@
+{
+  "conversation_id": "en_conv_02",
+  "language": "en",
+  "language_name": "English",
+  "primary_topic": "ai_workflow_adoption",
+  "topic_tags": ["ai_workflow_adoption", "developer_platforms"],
+  "difficulty_requested": "hard",
+  "difficulty_actual": "hard",
+  "quality_status": "passed",
+  "quality_score": 4.6,
+  "scenario": "answerable_now",
+  "expected_next_action": "answer",
+  "required_clarification_slots": [],
+  "resolution_goal": "Write one investor-friendly Twitter/X post that turns current GenAI updates into a clear market insight.",
+  "generated_by": "handwritten-example",
+  "conversation_turns": [
+    {
+      "role": "user",
+      "content": "Create an investor-friendly Twitter/X post from the latest GenAI news. The angle should be market adoption, not benchmark hype."
+    }
+  ],
+  "expected_output": {
+    "max_characters": 280,
+    "min_sources": 2,
+    "must_mention": ["Codex", "Gemini", "Claude"],
+    "required_source_providers": ["OpenAI", "Google", "Anthropic"]
+  }
+}
+

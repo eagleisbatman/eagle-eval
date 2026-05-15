@@ -79,6 +79,30 @@ def test_run_dry_run_uses_current_directory_config(tmp_path):
         assert "Dry run" in result.output
 
 
+def test_run_dry_run_can_override_agent_without_editing_config(tmp_path):
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        write_config(Path("eval_config.yaml"))
+
+        result = runner.invoke(
+            cli,
+            [
+                "run",
+                "--dry-run",
+                "--agent-module",
+                "sample_agents.openai_agents",
+                "--agent-function",
+                "run_conversation",
+                "--run-prefix",
+                "openai-agents",
+            ],
+        )
+
+        assert result.exit_code == 0, result.output
+        assert "Agent: sample_agents.openai_agents.run_conversation" in result.output
+        assert "Run prefix: openai-agents" in result.output
+
+
 def test_init_dry_run_defaults_to_local_results(tmp_path):
     runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=tmp_path):
@@ -511,6 +535,54 @@ def test_local_run_writes_json_and_markdown_reports(tmp_path):
         )
 
 
+def test_twitter_content_agent_sample_runs_all_sdk_wrappers(tmp_path):
+    sample_dir = Path(__file__).resolve().parents[1] / "examples" / "twitter_content_agent"
+    project_dir = tmp_path / "twitter_content_agent"
+    shutil.copytree(sample_dir, project_dir)
+    runner = CliRunner()
+
+    upload = runner.invoke(
+        cli,
+        [
+            "--project-dir",
+            str(project_dir),
+            "upload",
+            "--languages",
+            "en",
+            "--recreate",
+        ],
+    )
+    assert upload.exit_code == 0, upload.output
+    assert "Total items: 3" in upload.output
+
+    wrappers = {
+        "google-adk": "sample_agents.google_adk",
+        "openai-agents": "sample_agents.openai_agents",
+        "claude-code": "sample_agents.claude_code_sdk",
+    }
+    for prefix, module in wrappers.items():
+        result = runner.invoke(
+            cli,
+            [
+                "--project-dir",
+                str(project_dir),
+                "run",
+                "--languages",
+                "en",
+                "--agent-module",
+                module,
+                "--run-prefix",
+                prefix,
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        assert "twitter_post_quality" in result.output
+        assert "source_grounding" in result.output
+
+    run_reports = sorted((project_dir / "data/results/runs").glob("*.json"))
+    assert len(run_reports) == 3
+
+
 def test_local_status_reports_datasets_and_runs(tmp_path):
     runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=tmp_path):
@@ -561,6 +633,9 @@ def test_minimal_agent_app_runs_local_quickstart(tmp_path):
 def test_minimal_agent_sdk_wrappers_are_importable():
     repo_root = Path(__file__).resolve().parents[1]
     project_dir = repo_root / "examples" / "minimal_agent_app"
+    for loaded_name in list(sys.modules):
+        if loaded_name == "sample_agents" or loaded_name.startswith("sample_agents."):
+            del sys.modules[loaded_name]
     sys.path.insert(0, str(project_dir))
     try:
         for module_name in (

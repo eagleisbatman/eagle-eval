@@ -1,0 +1,16 @@
+{
+  "total": 3,
+  "passed": 3,
+  "flagged": 0,
+  "failed": 0,
+  "per_language": {
+    "en": {
+      "total": 3,
+      "passed": 3,
+      "flagged": 0,
+      "failed": 0,
+      "avg_quality": 4.7
+    }
+  }
+}
+

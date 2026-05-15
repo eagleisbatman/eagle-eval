@@ -1,0 +1,25 @@
+{
+  "generated_at": "2026-05-15T13:00:00+05:30",
+  "model": "handwritten-example",
+  "conversations": [
+    {
+      "conversation_id": "en_conv_01",
+      "language": "en",
+      "topic": "genai_product_updates",
+      "path": "data/synthetic/en/en_conv_01.json"
+    },
+    {
+      "conversation_id": "en_conv_02",
+      "language": "en",
+      "topic": "ai_workflow_adoption",
+      "path": "data/synthetic/en/en_conv_02.json"
+    },
+    {
+      "conversation_id": "en_conv_03",
+      "language": "en",
+      "topic": "developer_platforms",
+      "path": "data/synthetic/en/en_conv_03.json"
+    }
+  ]
+}
+

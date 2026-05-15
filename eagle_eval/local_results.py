@@ -45,7 +45,7 @@ def run_local_experiment(
         custom_evaluators=custom_evaluators,
     )
     evaluators = get_item_evaluators(include_model_scorers=include_model_scorers)
-    agent_fn = _load_agent(config)
+    agent_fn = _load_agent(config, project_dir)
 
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
     pv_str = "-".join(f"{key}v{value}" for key, value in sorted(prompt_versions.items()))
@@ -216,10 +216,11 @@ def _ensure_importable(project_dir: Path) -> None:
     importlib.invalidate_caches()
 
 
-def _load_agent(config: dict):
+def _load_agent(config: dict, project_dir: Path):
     module_name = config["agent"]["module"]
     function_name = config["agent"]["function"]
     try:
+        _remove_stale_project_modules(module_name, str(project_dir.expanduser().resolve()))
         module = importlib.import_module(module_name)
         return getattr(module, function_name)
     except (ImportError, AttributeError) as exc:
@@ -227,6 +228,21 @@ def _load_agent(config: dict):
             f"Cannot import agent: {module_name}.{function_name} — {exc}\n"
             "Make sure the agent module is importable from the eval project directory."
         ) from exc
+
+
+def _remove_stale_project_modules(module_name: str, project_path: str) -> None:
+    package_name = module_name.split(".", 1)[0]
+    package = sys.modules.get(package_name)
+    if package is None:
+        return
+
+    package_paths = [str(Path(path).resolve()) for path in getattr(package, "__path__", [])]
+    if any(path.startswith(project_path) for path in package_paths):
+        return
+
+    for loaded_name in list(sys.modules):
+        if loaded_name == package_name or loaded_name.startswith(f"{package_name}."):
+            del sys.modules[loaded_name]
 
 
 def _call_agent(agent_fn, item_input: dict, prompt_versions: dict) -> dict:
@@ -269,20 +285,22 @@ def _load_passed_conversations(lang_dir: Path) -> list[dict]:
 
 def _conversation_to_item(lang_code: str, conv: dict) -> dict:
     turns = conv.get("conversation_turns", [])
+    expected_output = {
+        "expected_topics": conv.get("topic_tags", [conv.get("primary_topic", "general")]),
+        "expected_language": lang_code,
+        "min_turns_responded": max(1, int(len(turns) * 0.8)),
+        "scenario": conv.get("scenario"),
+        "expected_next_action": conv.get("expected_next_action"),
+        "required_clarification_slots": conv.get("required_clarification_slots", []),
+        "resolution_goal": conv.get("resolution_goal"),
+    }
+    expected_output.update(conv.get("expected_output") or {})
     return {
         "input": {
             "language": lang_code,
             "conversation_turns": turns,
         },
-        "expected_output": {
-            "expected_topics": conv.get("topic_tags", [conv.get("primary_topic", "general")]),
-            "expected_language": lang_code,
-            "min_turns_responded": max(1, int(len(turns) * 0.8)),
-            "scenario": conv.get("scenario"),
-            "expected_next_action": conv.get("expected_next_action"),
-            "required_clarification_slots": conv.get("required_clarification_slots", []),
-            "resolution_goal": conv.get("resolution_goal"),
-        },
+        "expected_output": expected_output,
         "metadata": {
             "language": lang_code,
             "language_name": conv.get("language_name", lang_code),

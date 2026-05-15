@@ -1,0 +1,33 @@
+[
+  {
+    "id": "genai_product_updates",
+    "name": "GenAI product updates",
+    "description": "Recent product and platform changes from major GenAI providers.",
+    "difficulty_distribution": {
+      "easy": 2,
+      "medium": 6,
+      "hard": 2
+    }
+  },
+  {
+    "id": "ai_workflow_adoption",
+    "name": "AI workflow adoption",
+    "description": "Signals that AI is moving from chat interfaces into daily workflows.",
+    "difficulty_distribution": {
+      "easy": 2,
+      "medium": 5,
+      "hard": 3
+    }
+  },
+  {
+    "id": "developer_platforms",
+    "name": "Developer platforms",
+    "description": "Updates relevant to developers building agentic applications.",
+    "difficulty_distribution": {
+      "easy": 2,
+      "medium": 6,
+      "hard": 2
+    }
+  }
+]
+
