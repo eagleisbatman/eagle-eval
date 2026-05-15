@@ -16,7 +16,7 @@ def run_upload(config: dict, lang_codes: list[str], data_dir: Path,
     prefix = config.get("langfuse", {}).get("dataset_prefix", "evals")
     destination = str(config.get("results", {}).get("destination", "langfuse")).strip().lower()
     if destination == "local":
-        from eagle_eval.local_results import local_results_dir, write_local_datasets
+        from eagle_eval.local_datasets import local_results_dir, write_local_datasets
 
         if dry_run:
             project_dir = data_dir.expanduser().resolve().parent.parent

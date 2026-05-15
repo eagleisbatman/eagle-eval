@@ -1,11 +1,7 @@
 """Evaluators for agent experiments. Each returns an Evaluation-compatible object."""
 
 import json
-import logging
-import random
 import threading
-import time
-
 try:
     from langfuse import Evaluation
 except ImportError:
@@ -17,7 +13,7 @@ except ImportError:
             self.value = value
             self.comment = comment
 
-log = logging.getLogger(__name__)
+from eagle_eval.llm_judge import infer_provider, judge_response
 
 _SCORER_MODEL = None
 _SCORER = None
@@ -37,13 +33,11 @@ def configure(
     """Set the scoring model and domain globally for model-scored evaluators."""
     global _SCORER_MODEL, _SCORER, _DOMAIN, _APP_CONTEXT, _CUSTOM_EVALUATORS
     _SCORER_MODEL = scorer_model
-    _SCORER = scorer or _infer_provider(scorer_model)
+    _SCORER = scorer or infer_provider(scorer_model)
     _DOMAIN = domain
     _APP_CONTEXT = app_context or {}
     _CUSTOM_EVALUATORS = list(custom_evaluators or [])
 
-
-# ── Item-level evaluators ────────────────────────────────────────────────────
 
 def language_consistency(*, input, output, expected_output, metadata, **kwargs):
     """Check if agent responded in the correct language."""
@@ -102,7 +96,7 @@ Assistant responses (sample): {json.dumps(responses[:5], ensure_ascii=False)[:15
 
 Respond ONLY with JSON: {{"score": 0.0, "reasoning": "..."}}"""
 
-    result = _llm_judge(prompt)
+    result = _judge(prompt)
     return Evaluation(name="topic_relevance", value=result["score"], comment=result.get("reasoning", ""))
 
 
@@ -122,7 +116,7 @@ Responses (sample): {json.dumps(responses[:5], ensure_ascii=False)[:2000]}
 
 Respond ONLY with JSON: {{"score": 1.0, "reasoning": "..."}}"""
 
-    result = _llm_judge(prompt)
+    result = _judge(prompt)
     return Evaluation(name="safety_check", value=result["score"], comment=result.get("reasoning", ""))
 
 
@@ -144,11 +138,9 @@ Responses (sample): {json.dumps(responses[:5], ensure_ascii=False)[:1500]}
 
 Respond ONLY with JSON: {{"score": 0.0, "reasoning": "..."}}"""
 
-    result = _llm_judge(prompt)
+    result = _judge(prompt)
     return Evaluation(name="response_quality", value=result["score"], comment=result.get("reasoning", ""))
 
-
-# ── Run-level evaluators ─────────────────────────────────────────────────────
 
 def avg_language_consistency(*, scores, **kwargs):
     vals = [s.value for s in scores if s.name == "language_consistency" and s.value is not None]
@@ -177,8 +169,6 @@ def pass_rate(*, scores, **kwargs):
     return Evaluation(name="pass_rate", value=round(rate, 3), comment=f"{passed}/{total}")
 
 
-# ── Helpers ──────────────────────────────────────────────────────────────────
-
 DETERMINISTIC_ITEM_EVALUATORS = [language_consistency, response_completeness]
 MODEL_ITEM_EVALUATORS = [topic_relevance, safety_check, response_quality]
 ITEM_EVALUATORS = [*DETERMINISTIC_ITEM_EVALUATORS, *MODEL_ITEM_EVALUATORS]
@@ -188,36 +178,6 @@ RUN_EVALUATORS = [avg_language_consistency, avg_response_quality, pass_rate]
 def get_item_evaluators(include_model_scorers: bool = True) -> list:
     built_ins = ITEM_EVALUATORS if include_model_scorers else DETERMINISTIC_ITEM_EVALUATORS
     return [*built_ins, *_CUSTOM_EVALUATORS]
-
-
-def _llm_judge(prompt: str, retries: int = 3) -> dict:
-    """Call the scoring model and parse JSON response."""
-    provider = _normalize_provider(_SCORER, _SCORER_MODEL or "")
-    for attempt in range(retries):
-        try:
-            if provider == "gemini":
-                text = _call_gemini(prompt)
-            elif provider == "openai":
-                text = _call_openai(prompt)
-            elif provider == "anthropic":
-                text = _call_anthropic(prompt)
-            else:
-                return {"score": 0.0, "reasoning": f"Unsupported scorer service: {provider}"}
-
-            return _parse_json(text)
-        except Exception as e:
-            log.warning(f"Scorer call attempt {attempt+1} failed: {e}")
-            if attempt < retries - 1:
-                time.sleep(_retry_delay(attempt))
-
-    return {"score": 0.0, "reasoning": "Scorer failed after retries"}
-
-
-def _retry_delay(attempt: int, base_seconds: float = 1.0, max_seconds: float = 30.0) -> float:
-    """Return exponential retry delay with bounded jitter."""
-    exponential = min(max_seconds, base_seconds * (2 ** attempt))
-    jitter = random.uniform(0, min(base_seconds, 1.0))
-    return exponential + jitter
 
 
 def _context_summary() -> str:
@@ -232,64 +192,5 @@ def _context_summary() -> str:
     return json.dumps(summary, ensure_ascii=False, indent=2)
 
 
-def _normalize_provider(provider: str | None, model: str) -> str:
-    provider = (provider or _infer_provider(model)).strip().lower()
-    aliases = {
-        "google": "gemini",
-        "google-gemini": "gemini",
-        "claude": "anthropic",
-        "anthropic": "anthropic",
-        "openai": "openai",
-        "gpt": "openai",
-    }
-    return aliases.get(provider, provider)
-
-
-def _infer_provider(model: str) -> str:
-    model = model.lower()
-    if "gemini" in model:
-        return "gemini"
-    if "claude" in model:
-        return "anthropic"
-    if model.startswith(("gpt-", "o1", "o3", "o4")):
-        return "openai"
-    return "unknown"
-
-
-def _call_gemini(prompt: str) -> str:
-    try:
-        from google import genai
-        client = genai.Client()
-        response = client.models.generate_content(model=_SCORER_MODEL, contents=prompt)
-    except ImportError:
-        from google.generativeai import GenerativeModel
-        gm = GenerativeModel(_SCORER_MODEL)
-        response = gm.generate_content(prompt)
-    return response.text
-
-
-def _call_openai(prompt: str) -> str:
-    from openai import OpenAI
-
-    client = OpenAI()
-    response = client.responses.create(model=_SCORER_MODEL, input=prompt)
-    return response.output_text
-
-
-def _call_anthropic(prompt: str) -> str:
-    import anthropic
-    client = anthropic.Anthropic()
-    response = client.messages.create(
-        model=_SCORER_MODEL, max_tokens=1024,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    return response.content[0].text
-
-
-def _parse_json(text: str) -> dict:
-    text = text.strip()
-    if text.startswith("```"):
-        text = text.split("\n", 1)[1] if "\n" in text else text[3:]
-        if text.endswith("```"):
-            text = text[:-3]
-    return json.loads(text.strip())
+def _judge(prompt: str) -> dict:
+    return judge_response(prompt, scorer=_SCORER, scorer_model=_SCORER_MODEL or "")

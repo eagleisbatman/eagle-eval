@@ -407,6 +407,9 @@ python -m pytest -q
 python -m compileall eagle_eval tests
 ```
 
+The test suite includes an architecture guard that keeps Python files under 200 lines.
+Split commands, provider clients, templates, and result helpers into focused modules instead of growing large files.
+
 ## Repository Status
 
 This repo should stay private until the integrations have been exercised with real credentials and sample agents.

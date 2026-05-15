@@ -50,7 +50,9 @@ def run_generation(config: dict, lang_codes: list[str], proj_dir: Path, verbose:
 
     topics = _load_topics(proj_dir / "config" / "topics.json")
     test_cases = config["test_cases"]
-    writer = test_cases.get("writer") or _infer_provider(test_cases["writer_model"])
+    from eagle_eval.generation_clients import call_generation_model, infer_provider
+
+    writer = test_cases.get("writer") or infer_provider(test_cases["writer_model"])
     model = test_cases["writer_model"]
     convs_per_lang = test_cases["conversations_per_language"]
     turns = test_cases["turns_per_conversation"]
@@ -103,7 +105,7 @@ def run_generation(config: dict, lang_codes: list[str], proj_dir: Path, verbose:
 
             log.info(f"Generating {conv_id} ({lang_name}, {topic['name']}, {difficulty})")
 
-            conversation = _call_llm(writer, model, prompt, retries=3)
+            conversation = call_generation_model(writer, model, prompt, retries=3)
             if conversation is None:
                 log.error(f"Failed to generate {conv_id} after 3 retries")
                 failed += 1
@@ -141,102 +143,6 @@ def run_generation(config: dict, lang_codes: list[str], proj_dir: Path, verbose:
     (data_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False))
 
     return {"generated": generated, "failed": failed, "sample": sample}
-
-
-def _call_llm(provider: str, model: str, prompt: str, retries: int = 3) -> dict | None:
-    """Call the generation model. Supports Gemini, OpenAI, and Anthropic."""
-    provider = _normalize_provider(provider, model)
-    for attempt in range(retries):
-        try:
-            if provider == "gemini":
-                return _call_gemini(model, prompt)
-            elif provider == "openai":
-                return _call_openai(model, prompt)
-            elif provider == "anthropic":
-                return _call_anthropic(model, prompt)
-            else:
-                raise ValueError(
-                    f"Unsupported test-case writer: {provider}. "
-                    "Use gemini, openai, or anthropic."
-                )
-        except json.JSONDecodeError as e:
-            log.warning(f"JSON parse error on attempt {attempt+1}: {e}")
-            time.sleep(2 ** attempt)
-        except Exception as e:
-            log.warning(f"API error on attempt {attempt+1}: {e}")
-            time.sleep(2 ** attempt)
-    return None
-
-
-def _normalize_provider(provider: str | None, model: str) -> str:
-    provider = (provider or _infer_provider(model)).strip().lower()
-    aliases = {
-        "google": "gemini",
-        "google-gemini": "gemini",
-        "claude": "anthropic",
-        "anthropic": "anthropic",
-        "openai": "openai",
-        "gpt": "openai",
-    }
-    return aliases.get(provider, provider)
-
-
-def _infer_provider(model: str) -> str:
-    model = model.lower()
-    if "gemini" in model:
-        return "gemini"
-    if "claude" in model:
-        return "anthropic"
-    if model.startswith(("gpt-", "o1", "o3", "o4")):
-        return "openai"
-    return "unknown"
-
-
-def _call_gemini(model: str, prompt: str) -> dict:
-    """Call Google Gemini API."""
-    try:
-        from google import genai
-        client = genai.Client()
-    except ImportError:
-        from google.generativeai import GenerativeModel
-        gm = GenerativeModel(model)
-        response = gm.generate_content(prompt)
-        return _parse_json_response(response.text)
-
-    response = client.models.generate_content(model=model, contents=prompt)
-    return _parse_json_response(response.text)
-
-
-def _call_openai(model: str, prompt: str) -> dict:
-    """Call OpenAI Responses API."""
-    from openai import OpenAI
-
-    client = OpenAI()
-    response = client.responses.create(model=model, input=prompt)
-    return _parse_json_response(response.output_text)
-
-
-def _call_anthropic(model: str, prompt: str) -> dict:
-    """Call Anthropic API."""
-    import anthropic
-    client = anthropic.Anthropic()
-    response = client.messages.create(
-        model=model,
-        max_tokens=4096,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    return _parse_json_response(response.content[0].text)
-
-
-def _parse_json_response(text: str) -> dict:
-    """Parse JSON from LLM response, stripping markdown fences if present."""
-    text = text.strip()
-    if text.startswith("```"):
-        text = text.split("\n", 1)[1] if "\n" in text else text[3:]
-        if text.endswith("```"):
-            text = text[:-3]
-        text = text.strip()
-    return json.loads(text)
 
 
 def _load_topics(topics_path: Path) -> list[dict]:
