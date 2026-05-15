@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import importlib
 import json
-import sys
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
@@ -24,87 +22,87 @@ def run_local_experiment(
     """Run the real agent against local datasets and write JSON/Markdown reports."""
     from eagle_eval.custom_scoring import load_custom_evaluators
     from eagle_eval.evaluators import configure as configure_evaluators, get_item_evaluators
+    from eagle_eval.imports import project_import_context
 
     project_dir = project_dir.expanduser().resolve()
-    _ensure_importable(project_dir)
+    with project_import_context(project_dir, config["agent"]["module"]):
+        local_config = config.get("results", {}).get("local", {})
+        include_model_scorers = bool(local_config.get("include_model_scorers", False))
+        results_dir = local_results_dir(config, project_dir)
+        runs_dir = results_dir / "runs"
+        runs_dir.mkdir(parents=True, exist_ok=True)
 
-    local_config = config.get("results", {}).get("local", {})
-    include_model_scorers = bool(local_config.get("include_model_scorers", False))
-    results_dir = local_results_dir(config, project_dir)
-    runs_dir = results_dir / "runs"
-    runs_dir.mkdir(parents=True, exist_ok=True)
-
-    scorer = config["scoring"].get("scorer")
-    scorer_model = config["scoring"]["scorer_model"]
-    custom_evaluators = load_custom_evaluators(config, project_dir)
-    configure_evaluators(
-        scorer_model=scorer_model,
-        scorer=scorer,
-        domain=config["domain"],
-        app_context=config["app_context"],
-        custom_evaluators=custom_evaluators,
-    )
-    evaluators = get_item_evaluators(include_model_scorers=include_model_scorers)
-    agent_fn = _load_agent(config, project_dir)
-
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
-    pv_str = "-".join(f"{key}v{value}" for key, value in sorted(prompt_versions.items()))
-    run_name = "-".join(part for part in [run_prefix, "local", pv_str, timestamp] if part)
-
-    all_scores: dict[str, dict[str, float]] = {}
-    item_results = []
-
-    for lang_code in lang_codes:
-        lang_items = _load_items(project_dir, config, lang_code)
-        score_lists: dict[str, list[float]] = defaultdict(list)
-        processed_items = _run_language_items(
-            lang_code=lang_code,
-            items=lang_items,
-            agent_fn=agent_fn,
-            prompt_versions=prompt_versions,
-            evaluators=evaluators,
-            concurrency=concurrency,
+        scorer = config["scoring"].get("scorer")
+        scorer_model = config["scoring"]["scorer_model"]
+        custom_evaluators = load_custom_evaluators(config, project_dir)
+        configure_evaluators(
+            scorer_model=scorer_model,
+            scorer=scorer,
+            domain=config["domain"],
+            app_context=config["app_context"],
+            custom_evaluators=custom_evaluators,
         )
+        evaluators = get_item_evaluators(include_model_scorers=include_model_scorers)
+        agent_fn = _load_agent(config)
 
-        for item_result, score_values in processed_items:
-            item_results.append(item_result)
-            for score_name, value in score_values.items():
-                score_lists[score_name].append(value)
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
+        pv_str = "-".join(f"{key}v{value}" for key, value in sorted(prompt_versions.items()))
+        run_name = "-".join(part for part in [run_prefix, "local", pv_str, timestamp] if part)
 
-        all_scores[lang_code] = {
-            name: round(sum(values) / len(values), 3)
-            for name, values in sorted(score_lists.items())
-            if values
+        all_scores: dict[str, dict[str, float]] = {}
+        item_results = []
+
+        for lang_code in lang_codes:
+            lang_items = _load_items(project_dir, config, lang_code)
+            score_lists: dict[str, list[float]] = defaultdict(list)
+            processed_items = _run_language_items(
+                lang_code=lang_code,
+                items=lang_items,
+                agent_fn=agent_fn,
+                prompt_versions=prompt_versions,
+                evaluators=evaluators,
+                concurrency=concurrency,
+            )
+
+            for item_result, score_values in processed_items:
+                item_results.append(item_result)
+                for score_name, value in score_values.items():
+                    score_lists[score_name].append(value)
+
+            all_scores[lang_code] = {
+                name: round(sum(values) / len(values), 3)
+                for name, values in sorted(score_lists.items())
+                if values
+            }
+
+        report = {
+            "run_name": run_name,
+            "timestamp": timestamp,
+            "destination": "local",
+            "prompt_versions": prompt_versions,
+            "scores": all_scores,
+            "items": item_results,
+            "settings": {
+                "include_model_scorers": include_model_scorers,
+                "concurrency_requested": concurrency,
+            },
         }
 
-    report = {
-        "run_name": run_name,
-        "timestamp": timestamp,
-        "destination": "local",
-        "prompt_versions": prompt_versions,
-        "scores": all_scores,
-        "items": item_results,
-        "settings": {
-            "include_model_scorers": include_model_scorers,
-            "concurrency_requested": concurrency,
-        },
-    }
+        json_path = runs_dir / f"{run_name}.json"
+        markdown_path = runs_dir / f"{run_name}.md"
+        json_path.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
+        markdown_path.write_text(_markdown_report(report), encoding="utf-8")
 
-    json_path = runs_dir / f"{run_name}.json"
-    markdown_path = runs_dir / f"{run_name}.md"
-    json_path.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
-    markdown_path.write_text(_markdown_report(report), encoding="utf-8")
-
-    return {
-        "scores": all_scores,
-        "prompt_versions": prompt_versions,
-        "timestamp": timestamp,
-        "local_results": {
-            "json": str(json_path),
-            "markdown": str(markdown_path),
-            "items": len(item_results),
-        },
-    }
+        return {
+            "scores": all_scores,
+            "prompt_versions": prompt_versions,
+            "timestamp": timestamp,
+            "local_results": {
+                "json": str(json_path),
+                "markdown": str(markdown_path),
+                "items": len(item_results),
+            },
+        }
 
 
 def _run_language_items(
@@ -209,18 +207,12 @@ def local_results_dir(config: dict, project_dir: Path) -> Path:
     return project_dir.expanduser().resolve() / configured
 
 
-def _ensure_importable(project_dir: Path) -> None:
-    project_path = str(project_dir)
-    if project_path not in sys.path:
-        sys.path.insert(0, project_path)
-    importlib.invalidate_caches()
-
-
-def _load_agent(config: dict, project_dir: Path):
+def _load_agent(config: dict):
     module_name = config["agent"]["module"]
     function_name = config["agent"]["function"]
     try:
-        _remove_stale_project_modules(module_name, str(project_dir.expanduser().resolve()))
+        import importlib
+
         module = importlib.import_module(module_name)
         return getattr(module, function_name)
     except (ImportError, AttributeError) as exc:
@@ -228,21 +220,6 @@ def _load_agent(config: dict, project_dir: Path):
             f"Cannot import agent: {module_name}.{function_name} — {exc}\n"
             "Make sure the agent module is importable from the eval project directory."
         ) from exc
-
-
-def _remove_stale_project_modules(module_name: str, project_path: str) -> None:
-    package_name = module_name.split(".", 1)[0]
-    package = sys.modules.get(package_name)
-    if package is None:
-        return
-
-    package_paths = [str(Path(path).resolve()) for path in getattr(package, "__path__", [])]
-    if any(path.startswith(project_path) for path in package_paths):
-        return
-
-    for loaded_name in list(sys.modules):
-        if loaded_name == package_name or loaded_name.startswith(f"{package_name}."):
-            del sys.modules[loaded_name]
 
 
 def _call_agent(agent_fn, item_input: dict, prompt_versions: dict) -> dict:

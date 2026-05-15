@@ -3,7 +3,6 @@
 import importlib
 import json
 import logging
-import sys
 from pathlib import Path
 from datetime import datetime, timezone
 
@@ -47,6 +46,7 @@ def run_experiment(config: dict, lang_codes: list[str], prompt_versions: dict,
         ) from exc
     from eagle_eval.custom_scoring import load_custom_evaluators
     from eagle_eval.evaluators import get_item_evaluators, configure as configure_evaluators
+    from eagle_eval.imports import project_import_context
 
     lf = get_client()
     prefix = config.get("langfuse", {}).get("dataset_prefix", "evals")
@@ -57,126 +57,103 @@ def run_experiment(config: dict, lang_codes: list[str], prompt_versions: dict,
     domain = config["domain"]
     timeout = config["scoring"].get("item_timeout_seconds", 120)
 
-    custom_evaluators = load_custom_evaluators(config, project_dir)
-    configure_evaluators(
-        scorer_model=scorer_model,
-        scorer=scorer,
-        domain=domain,
-        app_context=config["app_context"],
-        custom_evaluators=custom_evaluators,
-    )
-
-    # Import the agent
-    try:
-        _ensure_importable(project_dir)
-        _remove_stale_project_modules(agent_module, str(project_dir.expanduser().resolve()))
-        mod = importlib.import_module(agent_module)
-        agent_fn = getattr(mod, agent_function)
-    except (ImportError, AttributeError) as e:
-        raise RuntimeError(
-            f"Cannot import agent: {agent_module}.{agent_function} — {e}\n"
-            f"Make sure the agent module is importable from the current directory."
+    with project_import_context(project_dir, agent_module):
+        custom_evaluators = load_custom_evaluators(config, project_dir)
+        configure_evaluators(
+            scorer_model=scorer_model,
+            scorer=scorer,
+            domain=domain,
+            app_context=config["app_context"],
+            custom_evaluators=custom_evaluators,
         )
 
-    # Fetch prompt objects from the result destination when supported.
-    prompts = {}
-    for prompt_name, version in prompt_versions.items():
+        # Import the agent
         try:
-            prompts[prompt_name] = lf.get_prompt(prompt_name, version=version)
-            log.info(f"Fetched prompt '{prompt_name}' v{version}")
-        except Exception as e:
-            log.warning(f"Could not fetch prompt '{prompt_name}' v{version}: {e}")
-            prompts[prompt_name] = None
+            mod = importlib.import_module(agent_module)
+            agent_fn = getattr(mod, agent_function)
+        except (ImportError, AttributeError) as e:
+            raise RuntimeError(
+                f"Cannot import agent: {agent_module}.{agent_function} — {e}\n"
+                f"Make sure the agent module is importable from the current directory."
+            ) from e
 
-    # Build the task function
-    def task(*, item, **kwargs):
-        language = item.input.get("language", "en")
-        turns = item.input.get("conversation_turns", [])
+        # Fetch prompt objects from the result destination when supported.
+        prompts = {}
+        for prompt_name, version in prompt_versions.items():
+            try:
+                prompts[prompt_name] = lf.get_prompt(prompt_name, version=version)
+                log.info(f"Fetched prompt '{prompt_name}' v{version}")
+            except Exception as e:
+                log.warning(f"Could not fetch prompt '{prompt_name}' v{version}: {e}")
+                prompts[prompt_name] = None
 
-        try:
-            result = agent_fn(
-                messages=turns,
-                language=language,
-                prompt_versions=prompt_versions,
-            )
-        except TypeError:
-            # Agent might not accept prompt_versions — try without
-            result = agent_fn(messages=turns, language=language)
+        # Build the task function
+        def task(*, item, **kwargs):
+            language = item.input.get("language", "en")
+            turns = item.input.get("conversation_turns", [])
 
-        if not isinstance(result, dict):
-            result = {"responses": [str(result)], "tools_called": [], "metadata": {}}
+            try:
+                result = agent_fn(
+                    messages=turns,
+                    language=language,
+                    prompt_versions=prompt_versions,
+                )
+            except TypeError:
+                # Agent might not accept prompt_versions — try without
+                result = agent_fn(messages=turns, language=language)
 
-        return result
+            if not isinstance(result, dict):
+                result = {"responses": [str(result)], "tools_called": [], "metadata": {}}
 
-    # Run per language
-    all_scores = {}
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
-    pv_str = "-".join(f"{k}v{v}" for k, v in sorted(prompt_versions.items()))
+            return result
 
-    for lang_code in lang_codes:
-        dataset_name = f"{prefix}/{lang_code}/conversations"
+        # Run per language
+        all_scores = {}
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
+        pv_str = "-".join(f"{k}v{v}" for k, v in sorted(prompt_versions.items()))
 
-        try:
-            dataset = lf.get_dataset(dataset_name)
-        except Exception as e:
-            log.warning(f"Dataset '{dataset_name}' not found: {e}")
-            continue
+        for lang_code in lang_codes:
+            dataset_name = f"{prefix}/{lang_code}/conversations"
 
-        run_name_parts = [run_prefix, lang_code, pv_str, timestamp]
-        run_name = "-".join(p for p in run_name_parts if p)
+            try:
+                dataset = lf.get_dataset(dataset_name)
+            except Exception as e:
+                log.warning(f"Dataset '{dataset_name}' not found: {e}")
+                continue
 
-        log.info(f"Running experiment: {run_name} on {dataset_name}")
+            run_name_parts = [run_prefix, lang_code, pv_str, timestamp]
+            run_name = "-".join(p for p in run_name_parts if p)
 
-        try:
-            result = dataset.run_experiment(
-                name=run_name,
-                task=task,
-                evaluators=get_item_evaluators(),
-                # Note: run_evaluators support depends on the installed SDK version.
-                # If not supported, run-level aggregation happens in the compare script
-                max_concurrency=concurrency,
-                metadata={
-                    "prompt_versions": prompt_versions,
-                    "language": lang_code,
-                    "agent": f"{agent_module}.{agent_function}",
-                },
-            )
+            log.info(f"Running experiment: {run_name} on {dataset_name}")
 
-            # Extract scores from result
-            lang_scores = _extract_scores(result)
-            all_scores[lang_code] = lang_scores
+            try:
+                result = dataset.run_experiment(
+                    name=run_name,
+                    task=task,
+                    evaluators=get_item_evaluators(),
+                    # Note: run_evaluators support depends on the installed SDK version.
+                    # If not supported, run-level aggregation happens in the compare script
+                    max_concurrency=concurrency,
+                    metadata={
+                        "prompt_versions": prompt_versions,
+                        "language": lang_code,
+                        "agent": f"{agent_module}.{agent_function}",
+                    },
+                )
 
-            log.info(f"Completed {run_name}: {json.dumps(lang_scores)}")
+                # Extract scores from result
+                lang_scores = _extract_scores(result)
+                all_scores[lang_code] = lang_scores
 
-        except Exception as e:
-            log.error(f"Experiment failed for {lang_code}: {e}")
-            all_scores[lang_code] = {"error": str(e)}
+                log.info(f"Completed {run_name}: {json.dumps(lang_scores)}")
+
+            except Exception as e:
+                log.error(f"Experiment failed for {lang_code}: {e}")
+                all_scores[lang_code] = {"error": str(e)}
 
     lf.flush()
 
     return {"scores": all_scores, "prompt_versions": prompt_versions, "timestamp": timestamp}
-
-
-def _ensure_importable(project_dir: Path) -> None:
-    project_path = str(project_dir.expanduser().resolve())
-    if project_path not in sys.path:
-        sys.path.insert(0, project_path)
-    importlib.invalidate_caches()
-
-
-def _remove_stale_project_modules(module_name: str, project_path: str) -> None:
-    package_name = module_name.split(".", 1)[0]
-    package = sys.modules.get(package_name)
-    if package is None:
-        return
-
-    package_paths = [str(Path(path).resolve()) for path in getattr(package, "__path__", [])]
-    if any(path.startswith(project_path) for path in package_paths):
-        return
-
-    for loaded_name in list(sys.modules):
-        if loaded_name == package_name or loaded_name.startswith(f"{package_name}."):
-            del sys.modules[loaded_name]
 
 
 def _extract_scores(result) -> dict:

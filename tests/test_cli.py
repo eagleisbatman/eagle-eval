@@ -103,6 +103,51 @@ def test_run_dry_run_can_override_agent_without_editing_config(tmp_path):
         assert "Run prefix: openai-agents" in result.output
 
 
+def test_project_import_context_swaps_same_package_between_projects(tmp_path):
+    from eagle_eval.imports import import_from_project
+
+    project_a = tmp_path / "project_a"
+    project_b = tmp_path / "project_b"
+    for project, value in ((project_a, "A"), (project_b, "B")):
+        package_dir = project / "sample_agents"
+        package_dir.mkdir(parents=True)
+        (package_dir / "__init__.py").write_text("")
+        (package_dir / "helper.py").write_text(f"VALUE = {value!r}\n")
+        (package_dir / "agent.py").write_text("from sample_agents.helper import VALUE\n")
+
+    try:
+        module_a = import_from_project(project_a, "sample_agents.agent")
+        module_b = import_from_project(project_b, "sample_agents.agent")
+    finally:
+        for loaded_name in list(sys.modules):
+            if loaded_name == "sample_agents" or loaded_name.startswith("sample_agents."):
+                del sys.modules[loaded_name]
+
+    assert module_a.VALUE == "A"
+    assert module_b.VALUE == "B"
+    assert str(project_a.resolve()) not in sys.path
+    assert str(project_b.resolve()) not in sys.path
+
+
+def test_llm_judge_retries_with_backoff_and_jitter(monkeypatch):
+    import eagle_eval.evaluators as evaluators
+
+    evaluators.configure(scorer="openai", scorer_model="gpt-4.1-mini", domain="test")
+    monkeypatch.setattr(
+        evaluators,
+        "_call_openai",
+        lambda prompt: (_ for _ in ()).throw(RuntimeError("rate limit")),
+    )
+    monkeypatch.setattr(evaluators.random, "uniform", lambda start, end: 0.25)
+    sleeps = []
+    monkeypatch.setattr(evaluators.time, "sleep", sleeps.append)
+
+    result = evaluators._llm_judge("score this", retries=3)
+
+    assert result == {"score": 0.0, "reasoning": "Scorer failed after retries"}
+    assert sleeps == [1.25, 2.25]
+
+
 def test_init_dry_run_defaults_to_local_results(tmp_path):
     runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=tmp_path):

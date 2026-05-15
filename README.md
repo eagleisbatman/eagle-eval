@@ -415,8 +415,10 @@ Before making it public:
 
 - verify Gemini test-case writing and scoring end to end
 - verify OpenAI and Claude writing/scoring paths on representative language subsets
+- verify the Twitter/X content agent in live mode with Google ADK, OpenAI Agents SDK, and Claude SDK credentials
 - verify Langfuse upload/run/status behavior with live credentials
 - verify LangSmith, OpenAI Evals, Gemini / Vertex AI evaluation, and Claude workflows
+- validate tier assignment and language-consistency scoring on lower-resource languages where language detection may be unreliable
 - decide the public license
 
 ## License

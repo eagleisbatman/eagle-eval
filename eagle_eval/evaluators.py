@@ -2,6 +2,7 @@
 
 import json
 import logging
+import random
 import threading
 import time
 
@@ -206,9 +207,17 @@ def _llm_judge(prompt: str, retries: int = 3) -> dict:
             return _parse_json(text)
         except Exception as e:
             log.warning(f"Scorer call attempt {attempt+1} failed: {e}")
-            time.sleep(2 ** attempt)
+            if attempt < retries - 1:
+                time.sleep(_retry_delay(attempt))
 
     return {"score": 0.0, "reasoning": "Scorer failed after retries"}
+
+
+def _retry_delay(attempt: int, base_seconds: float = 1.0, max_seconds: float = 30.0) -> float:
+    """Return exponential retry delay with bounded jitter."""
+    exponential = min(max_seconds, base_seconds * (2 ** attempt))
+    jitter = random.uniform(0, min(base_seconds, 1.0))
+    return exponential + jitter
 
 
 def _context_summary() -> str:
