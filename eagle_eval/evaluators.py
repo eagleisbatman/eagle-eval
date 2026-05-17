@@ -13,7 +13,8 @@ except ImportError:
             self.value = value
             self.comment = comment
 
-from eagle_eval.llm_judge import infer_provider, judge_response
+from eagle_eval.llm_judge import judge_response
+from eagle_eval.providers import infer_provider
 
 _SCORER_MODEL = None
 _SCORER = None

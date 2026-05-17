@@ -14,7 +14,8 @@ def run_quality_gate(config: dict, data_dir: Path, dry_run: bool = False, verbos
         logging.basicConfig(level=logging.DEBUG)
 
     threshold = config["test_cases"].get("quality_threshold", 3.5)
-    from eagle_eval.quality_review import infer_provider, review_conversation
+    from eagle_eval.providers import infer_provider
+    from eagle_eval.quality_review import review_conversation
 
     scorer = config["scoring"].get("scorer") or infer_provider(config["scoring"]["scorer_model"])
     scorer_model = config["scoring"]["scorer_model"]

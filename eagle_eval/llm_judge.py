@@ -7,6 +7,8 @@ import logging
 import random
 import time
 
+from eagle_eval.providers import normalize_provider
+
 log = logging.getLogger(__name__)
 
 
@@ -36,30 +38,6 @@ def retry_delay(attempt: int, base_seconds: float = 1.0, max_seconds: float = 30
     exponential = min(max_seconds, base_seconds * (2 ** attempt))
     jitter = random.uniform(0, min(base_seconds, 1.0))
     return exponential + jitter
-
-
-def normalize_provider(provider: str | None, model: str) -> str:
-    provider = (provider or infer_provider(model)).strip().lower()
-    aliases = {
-        "google": "gemini",
-        "google-gemini": "gemini",
-        "claude": "anthropic",
-        "anthropic": "anthropic",
-        "openai": "openai",
-        "gpt": "openai",
-    }
-    return aliases.get(provider, provider)
-
-
-def infer_provider(model: str) -> str:
-    model = model.lower()
-    if "gemini" in model:
-        return "gemini"
-    if "claude" in model:
-        return "anthropic"
-    if model.startswith(("gpt-", "o1", "o3", "o4")):
-        return "openai"
-    return "unknown"
 
 
 def _call_gemini(prompt: str, scorer_model: str) -> str:

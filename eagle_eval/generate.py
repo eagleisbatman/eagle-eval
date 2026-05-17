@@ -50,7 +50,8 @@ def run_generation(config: dict, lang_codes: list[str], proj_dir: Path, verbose:
 
     topics = _load_topics(proj_dir / "config" / "topics.json")
     test_cases = config["test_cases"]
-    from eagle_eval.generation_clients import call_generation_model, infer_provider
+    from eagle_eval.generation_clients import call_generation_model
+    from eagle_eval.providers import infer_provider
 
     writer = test_cases.get("writer") or infer_provider(test_cases["writer_model"])
     model = test_cases["writer_model"]
