@@ -15,6 +15,10 @@ After a complete eval run, you should have:
 - a compare result that tells you whether a prompt/model change regressed
 - enough trace/run context to debug why the agent failed
 
+The product roadmap is tracked in [ROADMAP.md](ROADMAP.md). The current
+priority is moving from generic metric-first output to goal-first scoring and
+reports.
+
 This is the mental model used across the major eval tools: Langfuse describes evals as repeatable checks that catch regressions, LangSmith centers datasets, experiments, and evaluator scores, OpenAI uses traces, graders, datasets, and eval runs, Vertex AI returns task-specific metrics, and Claude's evaluation flow uses test cases plus prompt-version comparison.
 
 ## Plain English Roles

@@ -1,5 +1,9 @@
 # Backlog
 
+Product roadmap and prioritized implementation tasks live in
+[ROADMAP.md](ROADMAP.md). This file only tracks intentionally deferred
+integration ideas.
+
 These integrations are intentionally deferred for now:
 
 - Braintrust result destination
