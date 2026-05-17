@@ -122,6 +122,7 @@ def test_doctor_guides_harness_setup_for_minimal_defaults(tmp_path):
         assert result.exit_code == 0, result.output
         assert "Codex/Claude setup guidance" in result.output
         assert "Ask the user for the real app/product name" in result.output
+        assert "app_context.product is still generic" in result.output
         assert "Confirm the real import path" in result.output
 
 

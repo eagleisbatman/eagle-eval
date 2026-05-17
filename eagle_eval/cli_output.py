@@ -7,6 +7,8 @@ from pathlib import Path
 
 import click
 
+BRAND_TAGLINE = "Goal-first eval runner for AI agents"
+
 
 def log(msg, bold=False, fg=None):
     click.echo(click.style(msg, bold=bold, fg=fg))
@@ -26,12 +28,13 @@ def err(msg):
 
 def banner():
     log("\n  Eagle Eval", bold=True, fg="cyan")
-    log("  Goal-first evaluation runner/runtime for AI agents", fg="cyan")
+    log(f"  {BRAND_TAGLINE}", fg="cyan")
 
 
 def heading(msg):
+    title = msg if msg.startswith("Eagle Eval") else f"Eagle Eval • {msg}"
     log(f"\n{'─'*50}", fg="cyan")
-    log(f"  {msg}", bold=True, fg="cyan")
+    log(f"  {title}", bold=True, fg="cyan")
     log(f"{'─'*50}", fg="cyan")
 
 

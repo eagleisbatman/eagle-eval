@@ -64,8 +64,11 @@ def _setup_questions(config: dict) -> list[str]:
     agent = config.get("agent", {})
     context = config.get("app_context", {})
     north_star = context.get("north_star", {})
+    product = str(context.get("product", "")).strip().lower()
     if config.get("app_name") in {"MyApp", "MyAgentApp"}:
         steps.append("Ask the user for the real app/product name.")
+    if product in {"", "other advisory assistant"}:
+        steps.append("Ask what this agent actually does; app_context.product is still generic.")
     if context.get("user") in {"target user", "user"}:
         steps.append("Ask who the agent serves and what a successful outcome means.")
     if north_star.get("name") == "monthly_unique_user_queries_resolved":

@@ -18,7 +18,7 @@ from eagle_eval.commands import register_commands
 @click.version_option(version=__version__)
 @click.pass_context
 def cli(ctx, project_dir):
-    """Goal-first evaluation runner/runtime for AI agents.
+    """Goal-first eval runner for AI agents.
 
     Run 'init' first to create eval_config.yaml, then generate → gate → upload → run.
     """

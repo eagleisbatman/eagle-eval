@@ -274,6 +274,9 @@ Run one target at a time:
 eagle-eval run --target research-flow --languages en
 ```
 
+Codex or Claude Code can add these targets after inspecting your repo; Eagle
+Eval simply runs the named wrapper and applies any target-specific app context.
+
 ## Configure
 
 Start from the example config if you want a complete sample instead of the
@@ -324,6 +327,7 @@ eagle-eval generate --languages tier1
 eagle-eval gate
 eagle-eval upload
 eagle-eval run --languages tier1
+eagle-eval run --target research-flow --languages en
 eagle-eval compare \
   --baseline '{"router":13}' \
   --candidate '{"router":14}'
