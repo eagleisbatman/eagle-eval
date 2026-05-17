@@ -80,6 +80,7 @@ Use `eagle-eval services --verbose` and `eagle-eval doctor` to report set/missin
 - `eagle-eval upload --languages en`
 - `eagle-eval run --languages en`
 - `eagle-eval run --target target-name --languages en`
+- `eagle-eval compare-targets --orchestrator full-flow --sub-targets sub-flow --languages en`
 - `eagle-eval status`
 - `eagle-eval scorer list`
 - `eagle-eval scorer init farmer_query_resolution --sample`
@@ -161,6 +162,7 @@ Commands:
 - `eagle-eval upload`
 - `eagle-eval run --languages tier1`
 - `eagle-eval run --target target-name --languages en`
+- `eagle-eval compare-targets --orchestrator full-flow --sub-targets sub-flow --languages en`
 - `eagle-eval compare --baseline '{"router":13}' --candidate '{"router":14}'`
 
 Recommended user prompts:
@@ -179,5 +181,6 @@ Configure Eagle Eval with these credentials. Store them safely in the local igno
 Scoring model:
 - `goal_achievement`: headline 0 or 1 score for whether the response satisfies the case goal.
 - `next_action_match`: headline 0 or 1 score for answer/clarify/confirm/escalate behavior.
+- `goal_achievement_judge`: optional model-scored goal check for nuanced cases.
 - Generic metrics such as language consistency, completeness, relevance, safety, quality, and pass rate are supporting signals.
 """

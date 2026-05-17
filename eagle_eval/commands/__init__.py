@@ -9,6 +9,7 @@ from eagle_eval.commands.scorer import scorer_group
 from eagle_eval.commands.services import services
 from eagle_eval.commands.setup import init_command
 from eagle_eval.commands.status import status
+from eagle_eval.commands.target_compare import compare_targets
 from eagle_eval.commands.updates import update
 
 
@@ -20,6 +21,7 @@ def register_commands(cli):
         upload,
         run,
         compare,
+        compare_targets,
         status,
         doctor,
         services,

@@ -17,7 +17,7 @@ still lean too generic. This is the most important product gap.
 - [x] Score against `resolution_goal`, `expected_next_action`, `scenario`, and
       `required_clarification_slots`.
 - [x] Add a deterministic next-action check where possible.
-- [ ] Add a model-judged goal-achievement check for nuanced cases.
+- [x] Add a model-judged goal-achievement check for nuanced cases.
 - [x] Keep generic metrics as supporting signals, not the headline result.
 - [x] Add tests for answerable, unclear-intent, missing-context, and high-risk
       scenarios.
@@ -70,7 +70,7 @@ discovery.
 - [x] Let each target map to a wrapper function.
 - [x] Allow per-target app context or goal overrides.
 - [x] Run and report targets independently.
-- [ ] Compare orchestrated flow results against sub-flow results.
+- [x] Compare orchestrated flow results against sub-flow results.
 
 ## Non-Goals For Now
 

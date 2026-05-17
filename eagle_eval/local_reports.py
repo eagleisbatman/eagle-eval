@@ -43,11 +43,14 @@ def _goal_summary_lines(summary: dict) -> list[str]:
     if not summary:
         return ["No goal summary available."]
     goal = summary.get("goal_achievement", {})
+    judge = summary.get("goal_achievement_judge", {})
     action = summary.get("next_action_match", {})
     lines = [
         f"- Goal achievement: `{goal.get('met', 0)}/{goal.get('scored', 0)}` ({_rate(goal)})",
         f"- Next-action match: `{action.get('matched', 0)}/{action.get('scored', 0)}` ({_rate(action)})",
     ]
+    if judge.get("scored"):
+        lines.append(f"- Model-judged goal achievement: `{judge.get('met', 0)}/{judge.get('scored', 0)}` ({_rate(judge)})")
     if summary.get("scenarios"):
         lines.extend(["", "| Scenario | Items | Goals Met | Next Actions Matched |", "| --- | ---: | ---: | ---: |"])
         for scenario, data in sorted(summary["scenarios"].items()):

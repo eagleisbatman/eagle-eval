@@ -50,6 +50,8 @@ needed:
   `resolution_goal`
 - `next_action_match`: 0 or 1, whether the agent answered, clarified,
   confirmed, or escalated as expected by `expected_next_action`
+- `goal_achievement_judge`: 0 to 1, optional model-judged check for nuanced
+  cases when model scorers are enabled
 
 Supporting scores help explain failures and regressions:
 
@@ -277,6 +279,19 @@ eagle-eval run --target research-flow --languages en
 Codex or Claude Code can add these targets after inspecting your repo; Eagle
 Eval simply runs the named wrapper and applies any target-specific app context.
 
+Compare an orchestrated target against sub-flow targets:
+
+```bash
+eagle-eval compare-targets \
+  --orchestrator full-flow \
+  --sub-targets research-flow,synthesis-flow \
+  --languages en
+```
+
+The comparison highlights cases where a sub-flow scores stronger than the
+orchestrated flow, which helps Codex or Claude Code focus debugging on routing,
+handoff, or synthesis behavior.
+
 ## Configure
 
 Start from the example config if you want a complete sample instead of the
@@ -328,6 +343,7 @@ eagle-eval gate
 eagle-eval upload
 eagle-eval run --languages tier1
 eagle-eval run --target research-flow --languages en
+eagle-eval compare-targets --orchestrator full-flow --sub-targets research-flow,synthesis-flow --languages en
 eagle-eval compare \
   --baseline '{"router":13}' \
   --candidate '{"router":14}'

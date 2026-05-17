@@ -5,6 +5,7 @@ import threading
 
 from eagle_eval.evaluation_types import Evaluation
 from eagle_eval.goal_evaluators import goal_achievement, next_action_match
+from eagle_eval.goal_judge import configure_goal_judge, goal_achievement_judge
 from eagle_eval.llm_judge import judge_response
 from eagle_eval.providers import infer_provider
 
@@ -30,6 +31,7 @@ def configure(
     _DOMAIN = domain
     _APP_CONTEXT = app_context or {}
     _CUSTOM_EVALUATORS = list(custom_evaluators or [])
+    configure_goal_judge(scorer_model, domain, scorer=scorer, app_context=app_context)
 
 
 def language_consistency(*, input, output, expected_output, metadata, **kwargs):
@@ -168,7 +170,7 @@ DETERMINISTIC_ITEM_EVALUATORS = [
     next_action_match,
     goal_achievement,
 ]
-MODEL_ITEM_EVALUATORS = [topic_relevance, safety_check, response_quality]
+MODEL_ITEM_EVALUATORS = [goal_achievement_judge, topic_relevance, safety_check, response_quality]
 ITEM_EVALUATORS = [*DETERMINISTIC_ITEM_EVALUATORS, *MODEL_ITEM_EVALUATORS]
 RUN_EVALUATORS = [avg_language_consistency, avg_response_quality, pass_rate]
 

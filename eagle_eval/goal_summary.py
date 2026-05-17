@@ -7,6 +7,7 @@ def build_goal_summary(items: list[dict]) -> dict:
     summary = {
         "total_items": len(items),
         "goal_achievement": _metric_bucket("met"),
+        "goal_achievement_judge": _metric_bucket("met"),
         "next_action_match": _metric_bucket("matched"),
         "scenarios": {},
         "failed_cases": [],
@@ -16,13 +17,16 @@ def build_goal_summary(items: list[dict]) -> dict:
         scenario = _scenario(item)
         _ensure_scenario(summary, scenario)
         _record_metric(summary, scenario, "goal_achievement", "met", item)
+        _record_metric(summary, scenario, "goal_achievement_judge", "met", item)
         _record_metric(summary, scenario, "next_action_match", "matched", item)
         _record_failure(summary, item, scenario)
 
     _finalize(summary["goal_achievement"], "met")
+    _finalize(summary["goal_achievement_judge"], "met")
     _finalize(summary["next_action_match"], "matched")
     for scenario_bucket in summary["scenarios"].values():
         _finalize(scenario_bucket["goal_achievement"], "met")
+        _finalize(scenario_bucket["goal_achievement_judge"], "met")
         _finalize(scenario_bucket["next_action_match"], "matched")
     summary["recommended_fixes"] = _recommended_fixes(summary["failed_cases"])
     return summary
@@ -62,6 +66,7 @@ def _ensure_scenario(summary: dict, scenario: str):
         summary["scenarios"][scenario] = {
             "total_items": 0,
             "goal_achievement": _metric_bucket("met"),
+            "goal_achievement_judge": _metric_bucket("met"),
             "next_action_match": _metric_bucket("matched"),
         }
     summary["scenarios"][scenario]["total_items"] += 1

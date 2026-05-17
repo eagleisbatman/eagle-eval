@@ -69,9 +69,12 @@ def _print_goal_summary(summary: dict):
     if not summary:
         return
     goal = summary.get("goal_achievement", {})
+    judge = summary.get("goal_achievement_judge", {})
     action = summary.get("next_action_match", {})
     if goal.get("scored"):
         log(f"  Goal achievement: {goal.get('met', 0)}/{goal['scored']} ({_rate(goal)})", bold=True)
+    if judge.get("scored"):
+        log(f"  Model-judged goal achievement: {judge.get('met', 0)}/{judge['scored']} ({_rate(judge)})")
     if action.get("scored"):
         log(f"  Next-action match: {action.get('matched', 0)}/{action['scored']} ({_rate(action)})")
     if summary.get("failed_cases"):
