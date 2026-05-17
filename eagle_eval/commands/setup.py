@@ -3,15 +3,28 @@
 import yaml
 import click
 
-from eagle_eval.cli_output import heading, log, ok, warn
+from eagle_eval.cli_output import banner, heading, log, ok, warn
 from eagle_eval.cli_runtime import config_path, data_dir, project_dir
 
 
 @click.command("init")
 @click.option("--dry-run", is_flag=True, help="Preview generated config without writing files")
 @click.option("--verbose", is_flag=True, help="Show setup paths")
-def init_command(dry_run, verbose):
-    """Interactive setup — creates eval_config.yaml and config files."""
+@click.option("--minimal", is_flag=True, help="Create a small harness-friendly config without prompts")
+@click.option("--full", "full_setup", is_flag=True, help="Ask the full setup questionnaire")
+@click.option("--app-name", default="MyAgentApp", show_default=True, help="App name for --minimal")
+@click.option("--domain", default="other", show_default=True, help="Domain for --minimal")
+@click.option("--user-persona", default="target user", show_default=True, help="End user for --minimal")
+@click.option("--agent-module", default="app.agent", show_default=True, help="Agent module for --minimal")
+@click.option("--agent-function", default="run_conversation", show_default=True, help="Agent function for --minimal")
+@click.option("--topics", default="general support", show_default=True, help="Comma-separated topics for --minimal")
+@click.option("--languages", default="en", show_default=True, help="Comma-separated tier 1 languages for --minimal")
+def init_command(
+    dry_run, verbose, minimal, full_setup, app_name, domain, user_persona,
+    agent_module, agent_function, topics, languages,
+):
+    """Create eval_config.yaml and config files."""
+    banner()
     heading("Eagle Eval Setup")
     path = config_path()
     root = project_dir()
@@ -24,7 +37,13 @@ def init_command(dry_run, verbose):
             log("  Keeping existing config.")
             return
 
-    config = _prompt_config()
+    if minimal and full_setup:
+        raise click.UsageError("Use either --minimal or --full, not both.")
+    use_minimal = minimal or not full_setup
+    config = (
+        _minimal_config(app_name, domain, user_persona, agent_module, agent_function, topics, languages)
+        if use_minimal else _prompt_config()
+    )
     rendered_config = yaml.dump(config, default_flow_style=False, sort_keys=False, allow_unicode=True)
     if dry_run:
         warn("Dry run — no files were written")
@@ -43,9 +62,14 @@ def init_command(dry_run, verbose):
 
     heading("Setup Complete")
     log("  Next steps:")
-    log("    1. Set the API keys shown by: eagle-eval doctor")
-    log(f"    2. Confirm the writer model: {config['test_cases']['writer_model']}")
-    log("    3. Run: eagle-eval generate --languages tier1")
+    if use_minimal:
+        log("    1. Let Codex/Claude inspect the repo and refine app_context if needed")
+        log("    2. Confirm readiness with: eagle-eval doctor")
+        log("    3. Run a tiny local loop: generate --languages en, gate, upload, run")
+    else:
+        log("    1. Set the API keys shown by: eagle-eval doctor")
+        log(f"    2. Confirm the writer model: {config['test_cases']['writer_model']}")
+        log("    3. Run: eagle-eval generate --languages tier1")
 
 
 def _prompt_config() -> dict:
@@ -68,6 +92,50 @@ def _prompt_config() -> dict:
     convs = click.prompt("  Conversations per language", default=10, type=int)
     turns = click.prompt("  Turns per conversation", default=10, type=int)
 
+    return _build_config(
+        app_name, domain, user_persona, agent_module, agent_function,
+        topics, tier1, tier2, total_langs, prompt_versions,
+        writer, writer_model, scorer, scorer_model, destination, convs, turns,
+    )
+
+
+def _minimal_config(
+    app_name: str,
+    domain: str,
+    user_persona: str,
+    agent_module: str,
+    agent_function: str,
+    topics: str,
+    languages: str,
+) -> dict:
+    tier1 = _csv_value(languages) or ["en"]
+    topic_values = _csv_value(topics) or ["general support"]
+    return _build_config(
+        app_name, domain, user_persona, agent_module, agent_function,
+        topic_values, tier1, [], max(1, len(tier1)), {"router": 1},
+        "gemini", "gemini-2.0-flash", "gemini", "gemini-3.1-pro", "local", 3, 3,
+    )
+
+
+def _build_config(
+    app_name: str,
+    domain: str,
+    user_persona: str,
+    agent_module: str,
+    agent_function: str,
+    topics: list[str],
+    tier1: list[str],
+    tier2: list[str],
+    total_langs: int,
+    prompt_versions: dict,
+    writer: str,
+    writer_model: str,
+    scorer: str,
+    scorer_model: str,
+    destination: str,
+    convs: int,
+    turns: int,
+) -> dict:
     return {
         "app_name": app_name,
         "domain": domain,
@@ -85,7 +153,11 @@ def _prompt_config() -> dict:
 
 
 def _csv_prompt(label: str, default: str) -> list[str]:
-    return [item.strip() for item in click.prompt(label, default=default).split(",") if item.strip()]
+    return _csv_value(click.prompt(label, default=default))
+
+
+def _csv_value(value: str) -> list[str]:
+    return [item.strip() for item in str(value).split(",") if item.strip()]
 
 
 def _app_context(domain: str, user_persona: str) -> dict:

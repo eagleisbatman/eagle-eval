@@ -33,6 +33,7 @@ def generate(languages, dry_run, verbose):
 
     from eagle_eval.generate import run_generation
 
+    log("\n  Writing goal-aware test cases...", bold=True)
     results = run_generation(config, lang_codes, project_dir(), verbose=verbose)
     heading("Generation Complete")
     ok(f"Generated: {results['generated']} conversations")
@@ -51,6 +52,7 @@ def gate(dry_run, verbose):
     from eagle_eval.gate import run_quality_gate
 
     heading("Quality Gate")
+    log("  Reviewing generated cases before they become regression data...", bold=True)
     results = run_quality_gate(config, data_dir(), dry_run=dry_run, verbose=verbose)
     log(f"\n  Total:   {results['total']}")
     ok(f"Passed:  {results['passed']} ({pct(results['passed'], results['total'])})")
@@ -85,6 +87,7 @@ def upload(languages, recreate, dry_run, verbose):
     if dry_run:
         warn("Dry run — nothing will be uploaded")
 
+    log("\n  Preparing datasets for eval runs...", bold=True)
     results = run_upload(config, lang_codes, data_dir(), recreate=recreate, dry_run=dry_run, verbose=verbose)
     heading("Upload Complete")
     for dataset_name, count in results["datasets"].items():

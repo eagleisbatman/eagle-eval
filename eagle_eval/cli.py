@@ -18,7 +18,7 @@ from eagle_eval.commands import register_commands
 @click.version_option(version=__version__)
 @click.pass_context
 def cli(ctx, project_dir):
-    """Eagle Eval pipeline for multilingual LLM apps.
+    """Goal-first evaluation runner/runtime for AI agents.
 
     Run 'init' first to create eval_config.yaml, then generate → gate → upload → run.
     """

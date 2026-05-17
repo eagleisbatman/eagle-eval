@@ -5,6 +5,8 @@ from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
+from eagle_eval.agent_calling import call_agent, load_agent
+from eagle_eval.goal_summary import build_goal_summary
 from eagle_eval.local_datasets import load_items, local_results_dir
 from eagle_eval.local_reports import markdown_report
 
@@ -41,7 +43,7 @@ def run_local_experiment(
             custom_evaluators=custom_evaluators,
         )
         evaluators = get_item_evaluators(include_model_scorers=include_model_scorers)
-        agent_fn = _load_agent(config)
+        agent_fn = load_agent(config)
 
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
         pv_str = "-".join(f"{key}v{value}" for key, value in sorted(prompt_versions.items()))
@@ -72,12 +74,14 @@ def run_local_experiment(
                 if values
             }
 
+        summary = build_goal_summary(item_results)
         report = {
             "run_name": run_name,
             "timestamp": timestamp,
             "destination": "local",
             "prompt_versions": prompt_versions,
             "scores": all_scores,
+            "summary": summary,
             "items": item_results,
             "settings": {
                 "include_model_scorers": include_model_scorers,
@@ -92,6 +96,7 @@ def run_local_experiment(
             "scores": all_scores,
             "prompt_versions": prompt_versions,
             "timestamp": timestamp,
+            "summary": summary,
             "local_results": {
                 "json": str(json_path),
                 "markdown": str(markdown_path),
@@ -127,6 +132,7 @@ def _run_language_items(
 
     return [result for result in ordered_results if result is not None]
 
+
 def _score_item(
     lang_code: str,
     item: dict,
@@ -134,7 +140,7 @@ def _score_item(
     prompt_versions: dict,
     evaluators: list,
 ) -> tuple[dict, dict[str, float]]:
-    output = _call_agent(agent_fn, item["input"], prompt_versions)
+    output = call_agent(agent_fn, item["input"], prompt_versions)
     evaluations = []
     score_values: dict[str, float] = {}
     for evaluator in evaluators:
@@ -159,34 +165,6 @@ def _score_item(
         },
         score_values,
     )
-
-
-def _load_agent(config: dict):
-    module_name = config["agent"]["module"]
-    function_name = config["agent"]["function"]
-    try:
-        import importlib
-
-        module = importlib.import_module(module_name)
-        return getattr(module, function_name)
-    except (ImportError, AttributeError) as exc:
-        raise RuntimeError(
-            f"Cannot import agent: {module_name}.{function_name} — {exc}\n"
-            "Make sure the agent module is importable from the eval project directory."
-        ) from exc
-
-
-def _call_agent(agent_fn, item_input: dict, prompt_versions: dict) -> dict:
-    messages = item_input.get("conversation_turns", [])
-    language = item_input.get("language", "en")
-    try:
-        result = agent_fn(messages=messages, language=language, prompt_versions=prompt_versions)
-    except TypeError:
-        result = agent_fn(messages=messages, language=language)
-
-    if not isinstance(result, dict):
-        return {"responses": [str(result)], "tools_called": [], "metadata": {}}
-    return result
 
 
 def _evaluation_payload(evaluation) -> dict:

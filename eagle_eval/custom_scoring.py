@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
-from eagle_eval.evaluators import Evaluation
+from eagle_eval.evaluation_types import Evaluation
 
 
 @dataclass(frozen=True)

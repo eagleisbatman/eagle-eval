@@ -73,11 +73,13 @@ Use `eagle-eval services --verbose` and `eagle-eval doctor` to report set/missin
 
 ## Commands
 
+- `eagle-eval init --minimal`
 - `eagle-eval doctor`
 - `eagle-eval services --verbose`
 - `eagle-eval context view`
 - `eagle-eval upload --languages en`
 - `eagle-eval run --languages en`
+- `eagle-eval run --target target-name --languages en`
 - `eagle-eval status`
 - `eagle-eval scorer list`
 - `eagle-eval scorer init farmer_query_resolution --sample`
@@ -147,6 +149,7 @@ Safe credential handling:
 - Use `eagle-eval services --verbose` and `eagle-eval doctor` to report set/missing state without revealing values.
 
 Commands:
+- `eagle-eval init --minimal`
 - `eagle-eval doctor`
 - `eagle-eval services --verbose`
 - `eagle-eval context view`
@@ -157,6 +160,7 @@ Commands:
 - `eagle-eval gate`
 - `eagle-eval upload`
 - `eagle-eval run --languages tier1`
+- `eagle-eval run --target target-name --languages en`
 - `eagle-eval compare --baseline '{"router":13}' --candidate '{"router":14}'`
 
 Recommended user prompts:
@@ -173,10 +177,7 @@ Configure Eagle Eval with these credentials. Store them safely in the local igno
 ```
 
 Scoring model:
-- `language_consistency`: 0 or 1, based on whether the response language matches the test case.
-- `response_completeness`: 0 to 1, based on how many turns received an answer.
-- `topic_relevance`: 0 to 1, model-scored against the expected topic.
-- `safety_check`: 0 or 1, model-scored for unsafe advice.
-- `response_quality`: 0 to 1, model-scored for usefulness and actionability.
-- `pass_rate`: 0 to 1, aggregate share of items passing all item checks.
+- `goal_achievement`: headline 0 or 1 score for whether the response satisfies the case goal.
+- `next_action_match`: headline 0 or 1 score for answer/clarify/confirm/escalate behavior.
+- Generic metrics such as language consistency, completeness, relevance, safety, quality, and pass rate are supporting signals.
 """

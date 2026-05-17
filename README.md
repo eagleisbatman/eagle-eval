@@ -43,7 +43,15 @@ Quality gate scores the generated test cases before they become regression data:
 - `language_quality`: 1-5, whether the language is natural and not translated English
 - `overall`: 1-5, used against `test_cases.quality_threshold`
 
-Agent-run scores measure the actual agent output:
+Agent-run headline scores measure whether the agent did what the test case
+needed:
+
+- `goal_achievement`: 0 or 1, whether the response satisfies the case's
+  `resolution_goal`
+- `next_action_match`: 0 or 1, whether the agent answered, clarified,
+  confirmed, or escalated as expected by `expected_next_action`
+
+Supporting scores help explain failures and regressions:
 
 - `language_consistency`: 0 or 1
 - `response_completeness`: 0 to 1
@@ -52,7 +60,7 @@ Agent-run scores measure the actual agent output:
 - `response_quality`: 0 to 1, model-scored
 - `pass_rate`: 0 to 1 aggregate
 
-Local runs use deterministic built-ins and custom scorers by default. Set `results.local.include_model_scorers: true` when you want local runs to call the configured Gemini, OpenAI, or Claude scorer model for model-judged metrics.
+Local runs use deterministic built-ins and custom scorers by default. Set `results.local.include_model_scorers: true` when you want local runs to call the configured Gemini, OpenAI, or Claude scorer model for model-judged supporting metrics.
 
 OpenAI's grader guidance also uses 0 to 1 grades, Langfuse supports numeric, categorical, boolean, and text scores, LangSmith evaluator feedback contains a metric key plus score/value and optional comment, Vertex AI supports model-based and computation-based metrics, and Claude recommends code-based, human, and LLM-based grading depending on reliability needs.
 
@@ -176,6 +184,15 @@ Create `eval_config.yaml`:
 eagle-eval init
 ```
 
+`init` starts with a small harness-friendly config so Claude Code or Codex can
+refine the app context and wrapper path from the repo:
+
+```bash
+eagle-eval doctor
+```
+
+For the full guided questionnaire, use `eagle-eval init --full`.
+
 Install skills and project helper files for both coding agents:
 
 ```bash
@@ -235,9 +252,32 @@ research-backed Twitter/X content generator that drafts a post from current
 Generative AI updates and can be replayed through Google ADK, OpenAI Agents SDK,
 and Claude Code SDK wrappers.
 
+## Named Eval Targets
+
+For orchestrators, sub-agents, or separate product flows, define named targets
+instead of forcing everything through one wrapper:
+
+```yaml
+eval_targets:
+  - name: research-flow
+    agent:
+      module: app.research_agent
+      function: run_conversation
+    app_context:
+      north_star:
+        name: high_quality_research_briefs
+```
+
+Run one target at a time:
+
+```bash
+eagle-eval run --target research-flow --languages en
+```
+
 ## Configure
 
-Start from the example config if you do not want the prompt flow:
+Start from the example config if you want a complete sample instead of the
+generated minimal config:
 
 ```bash
 cp examples/eval_config.example.yaml eval_config.yaml
@@ -249,6 +289,10 @@ Use `doctor` before live or service-backed runs:
 eagle-eval doctor --verbose
 eagle-eval services --verbose
 ```
+
+`doctor` also prints Codex/Claude setup guidance: what product context to ask
+for, whether the wrapper path still looks like a placeholder, and whether the
+language set should be confirmed before broad generation.
 
 Local result files do not require service keys. Set only the keys for the services you use:
 
@@ -321,8 +365,8 @@ results:
 
 `eagle-eval upload` writes passing generated conversations into `data/results/datasets/*.json`. `eagle-eval run` can read those dataset files, run the configured agent, score every item, and write:
 
-- `data/results/runs/<run-name>.json` with full inputs, outputs, scores, comments, and metadata
-- `data/results/runs/<run-name>.md` with a human-readable score summary and per-item notes
+- `data/results/runs/<run-name>.json` with full inputs, outputs, scores, comments, metadata, and the goal-first summary
+- `data/results/runs/<run-name>.md` with goal achievement, next-action match, scenario breakdowns, failed cases, recommended fixes, and per-item notes
 
 `eagle-eval status` shows local dataset counts and the latest local run. This makes the default loop useful without Langfuse credentials:
 

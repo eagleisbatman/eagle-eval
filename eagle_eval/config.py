@@ -35,34 +35,37 @@ def load_config(config_path: Path) -> dict:
     ]
     missing = [k for k in required_keys if k not in config]
     if missing:
-        raise ValueError(f"Missing required config keys: {missing}")
+        raise ValueError(
+            f"Missing required config keys: {missing}. "
+            "Add them to eval_config.yaml or rerun: eagle-eval init --minimal"
+        )
 
     if not isinstance(config["agent"], dict) or "module" not in config["agent"] or "function" not in config["agent"]:
-        raise ValueError("agent.module and agent.function are required in config")
+        raise ValueError("agent.module and agent.function are required. Point them at your run_conversation wrapper.")
 
     if not isinstance(config["languages"], dict):
-        raise ValueError("languages must be a mapping with tier1/tier2 lists")
+        raise ValueError("languages must be a mapping with tier1/tier2 lists. Example: languages: {tier1: [en]}")
     if not config["languages"].get("tier1"):
-        raise ValueError("languages.tier1 must contain at least one language code")
+        raise ValueError("languages.tier1 must contain at least one language code, such as en")
 
     if not isinstance(config["prompt_versions"], dict) or not isinstance(config["prompt_versions"].get("current"), dict):
-        raise ValueError("prompt_versions.current must be a mapping of prompt names to versions")
+        raise ValueError("prompt_versions.current must map prompt names to versions, such as router: 1")
 
     for section in ("test_cases", "scoring", "results"):
         if not isinstance(config[section], dict):
             raise ValueError(f"{section} must be a mapping")
 
     if "writer" not in config["test_cases"] or "writer_model" not in config["test_cases"]:
-        raise ValueError("test_cases.writer and test_cases.writer_model are required in config")
+        raise ValueError("test_cases.writer and test_cases.writer_model are required, for example gemini and gemini-2.0-flash")
 
     if "scorer" not in config["scoring"] or "scorer_model" not in config["scoring"]:
-        raise ValueError("scoring.scorer and scoring.scorer_model are required in config")
+        raise ValueError("scoring.scorer and scoring.scorer_model are required, preferably a stronger model than the agent")
 
     if not isinstance(config["app_context"], dict):
         raise ValueError("app_context must be a mapping")
     north_star = config["app_context"].get("north_star")
     if not isinstance(north_star, dict) or "name" not in north_star or "definition" not in north_star:
-        raise ValueError("app_context.north_star.name and app_context.north_star.definition are required")
+        raise ValueError("app_context.north_star.name and definition are required so scores are tied to product success")
 
     custom_metrics = config["scoring"].get("custom_metrics", [])
     if custom_metrics is None:
@@ -75,8 +78,20 @@ def load_config(config_path: Path) -> dict:
         if "name" not in metric or "path" not in metric:
             raise ValueError(f"scoring.custom_metrics[{index}] requires name and path")
 
+    eval_targets = config.get("eval_targets", [])
+    if eval_targets is None:
+        eval_targets = []
+    if not isinstance(eval_targets, list):
+        raise ValueError("eval_targets must be a list of named target mappings")
+    for index, target in enumerate(eval_targets):
+        if not isinstance(target, dict) or not target.get("name"):
+            raise ValueError(f"eval_targets[{index}] requires a name")
+        agent = target.get("agent", {})
+        if agent and ("module" not in agent or "function" not in agent):
+            raise ValueError(f"eval_targets[{index}].agent requires module and function")
+
     if "destination" not in config["results"]:
-        raise ValueError("results.destination is required in config")
+        raise ValueError("results.destination is required. Use local for file-only reports.")
 
     return config
 

@@ -11,6 +11,10 @@ def markdown_report(report: dict) -> str:
         f"- Items: `{len(report['items'])}`",
         f"- Model scorers included: `{report['settings']['include_model_scorers']}`",
         "",
+        "## Goal Summary",
+        "",
+        *_goal_summary_lines(report.get("summary", {})),
+        "",
         "## Scores",
         "",
         "| Language | Metric | Score |",
@@ -33,3 +37,33 @@ def markdown_report(report: dict) -> str:
         lines.append("")
 
     return "\n".join(lines).rstrip() + "\n"
+
+
+def _goal_summary_lines(summary: dict) -> list[str]:
+    if not summary:
+        return ["No goal summary available."]
+    goal = summary.get("goal_achievement", {})
+    action = summary.get("next_action_match", {})
+    lines = [
+        f"- Goal achievement: `{goal.get('met', 0)}/{goal.get('scored', 0)}` ({_rate(goal)})",
+        f"- Next-action match: `{action.get('matched', 0)}/{action.get('scored', 0)}` ({_rate(action)})",
+    ]
+    if summary.get("scenarios"):
+        lines.extend(["", "| Scenario | Items | Goals Met | Next Actions Matched |", "| --- | ---: | ---: | ---: |"])
+        for scenario, data in sorted(summary["scenarios"].items()):
+            g = data["goal_achievement"]
+            a = data["next_action_match"]
+            lines.append(f"| {scenario} | {data['total_items']} | {g.get('met', 0)}/{g.get('scored', 0)} | {a.get('matched', 0)}/{a.get('scored', 0)} |")
+    if summary.get("failed_cases"):
+        lines.extend(["", "Failed goal cases:"])
+        for case in summary["failed_cases"][:10]:
+            lines.append(f"- `{case['conversation_id']}` ({case['scenario']}): {case['reason']}")
+    if summary.get("recommended_fixes"):
+        lines.extend(["", "Recommended fixes:"])
+        lines.extend(f"- {fix}" for fix in summary["recommended_fixes"])
+    return lines
+
+
+def _rate(bucket: dict) -> str:
+    rate = bucket.get("rate")
+    return "n/a" if rate is None else f"{rate * 100:.0f}%"

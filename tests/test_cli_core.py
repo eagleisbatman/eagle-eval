@@ -78,11 +78,51 @@ def test_llm_judge_retries_with_backoff_and_jitter(monkeypatch):
 def test_init_dry_run_defaults_to_local_results(tmp_path):
     runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=tmp_path):
-        result = runner.invoke(cli, ["init", "--dry-run"], input="\n" * 40)
+        result = runner.invoke(cli, ["init", "--dry-run"])
         assert result.exit_code == 0, result.output
         assert "destination: local" in result.output
         assert "directory: data/results" in result.output
         assert "include_model_scorers: false" in result.output
+
+
+def test_init_full_keeps_interactive_questionnaire(tmp_path):
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(cli, ["init", "--full", "--dry-run"], input="\n" * 40)
+        assert result.exit_code == 0, result.output
+        assert "app_name: MyApp" in result.output
+
+
+def test_init_minimal_writes_harness_friendly_config(tmp_path):
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(
+            cli,
+            [
+                "init", "--minimal", "--app-name", "Farm Copilot",
+                "--domain", "agriculture", "--user-persona", "farmer",
+                "--agent-module", "farm.agent", "--agent-function", "run",
+                "--topics", "crop disease,pest control", "--languages", "en,hi",
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        config_text = Path("eval_config.yaml").read_text()
+        assert "app_name: Farm Copilot" in config_text
+        assert "module: farm.agent" in config_text
+        assert "function: run" in config_text
+        assert "monthly_unique_farmer_queries_resolved" in config_text
+        assert Path("config/languages.json").exists()
+
+
+def test_doctor_guides_harness_setup_for_minimal_defaults(tmp_path):
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        runner.invoke(cli, ["init", "--minimal"])
+        result = runner.invoke(cli, ["doctor"])
+        assert result.exit_code == 0, result.output
+        assert "Codex/Claude setup guidance" in result.output
+        assert "Ask the user for the real app/product name" in result.output
+        assert "Confirm the real import path" in result.output
 
 
 def test_gate_dry_run_does_not_mutate_conversations_or_write_report(tmp_path):

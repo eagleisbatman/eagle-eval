@@ -2,17 +2,9 @@
 
 import json
 import threading
-try:
-    from langfuse import Evaluation
-except ImportError:
-    class Evaluation:
-        """Small fallback used when a result-destination SDK is not installed."""
 
-        def __init__(self, name: str, value: float, comment: str = ""):
-            self.name = name
-            self.value = value
-            self.comment = comment
-
+from eagle_eval.evaluation_types import Evaluation
+from eagle_eval.goal_evaluators import goal_achievement, next_action_match
 from eagle_eval.llm_judge import judge_response
 from eagle_eval.providers import infer_provider
 
@@ -170,7 +162,12 @@ def pass_rate(*, scores, **kwargs):
     return Evaluation(name="pass_rate", value=round(rate, 3), comment=f"{passed}/{total}")
 
 
-DETERMINISTIC_ITEM_EVALUATORS = [language_consistency, response_completeness]
+DETERMINISTIC_ITEM_EVALUATORS = [
+    language_consistency,
+    response_completeness,
+    next_action_match,
+    goal_achievement,
+]
 MODEL_ITEM_EVALUATORS = [topic_relevance, safety_check, response_quality]
 ITEM_EVALUATORS = [*DETERMINISTIC_ITEM_EVALUATORS, *MODEL_ITEM_EVALUATORS]
 RUN_EVALUATORS = [avg_language_consistency, avg_response_quality, pass_rate]

@@ -16,6 +16,7 @@ def doctor(verbose):
         warn("No eval_config.yaml found. Run 'eagle-eval init' first.")
     else:
         _print_config_roles(config)
+    _print_harness_next_steps(config)
 
     from eagle_eval.integrations import check_integrations
 
@@ -40,6 +41,40 @@ def _print_config_roles(config: dict):
     log(f"    Test-case writer: {test_cases.get('writer', '?')} ({test_cases.get('writer_model', '?')})")
     log(f"    Scorer:           {scoring.get('scorer', '?')} ({scoring.get('scorer_model', '?')})")
     log(f"    Result destination: {results.get('destination', '?')}")
+
+
+def _print_harness_next_steps(config: dict):
+    log("\n  Codex/Claude setup guidance:")
+    if not config:
+        warn("Create a starter config with: eagle-eval init --minimal")
+        log("    Then let the coding agent inspect the repo and fill app_context plus the agent wrapper path.")
+        return
+
+    steps = _setup_questions(config)
+    if not steps:
+        ok("Core config is ready for a small local eval.")
+        log("    Suggested loop: generate --languages en, gate, upload, run")
+        return
+    for step in steps:
+        warn(step)
+
+
+def _setup_questions(config: dict) -> list[str]:
+    steps = []
+    agent = config.get("agent", {})
+    context = config.get("app_context", {})
+    north_star = context.get("north_star", {})
+    if config.get("app_name") in {"MyApp", "MyAgentApp"}:
+        steps.append("Ask the user for the real app/product name.")
+    if context.get("user") in {"target user", "user"}:
+        steps.append("Ask who the agent serves and what a successful outcome means.")
+    if north_star.get("name") == "monthly_unique_user_queries_resolved":
+        steps.append("Ask whether the North Star should be more domain-specific.")
+    if agent.get("module") == "app.agent":
+        steps.append("Confirm the real import path for the agent wrapper.")
+    if len(config.get("languages", {}).get("tier1", [])) == 1:
+        steps.append("Confirm the first eval language set before broad multilingual generation.")
+    return steps
 
 
 def _print_integration(item: dict, verbose: bool):

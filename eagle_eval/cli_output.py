@@ -24,6 +24,11 @@ def err(msg):
     log(f"  ✗ {msg}", fg="red")
 
 
+def banner():
+    log("\n  Eagle Eval", bold=True, fg="cyan")
+    log("  Goal-first evaluation runner/runtime for AI agents", fg="cyan")
+
+
 def heading(msg):
     log(f"\n{'─'*50}", fg="cyan")
     log(f"  {msg}", bold=True, fg="cyan")
@@ -39,6 +44,7 @@ def format_readiness_map(values: dict, ok_label: str, missing_label: str) -> str
 
 
 def print_results_table(results: dict):
+    _print_goal_summary(results.get("summary", {}))
     try:
         from tabulate import tabulate
     except ImportError:
@@ -54,6 +60,24 @@ def print_results_table(results: dict):
         for metric, value in scores.items()
     ]
     log(tabulate(rows, headers=["Language", "Metric", "Score"], tablefmt="rounded_grid"))
+
+
+def _print_goal_summary(summary: dict):
+    if not summary:
+        return
+    goal = summary.get("goal_achievement", {})
+    action = summary.get("next_action_match", {})
+    if goal.get("scored"):
+        log(f"  Goal achievement: {goal.get('met', 0)}/{goal['scored']} ({_rate(goal)})", bold=True)
+    if action.get("scored"):
+        log(f"  Next-action match: {action.get('matched', 0)}/{action['scored']} ({_rate(action)})")
+    if summary.get("failed_cases"):
+        warn(f"Goal failures: {len(summary['failed_cases'])} case(s)")
+
+
+def _rate(bucket: dict) -> str:
+    rate = bucket.get("rate")
+    return "n/a" if rate is None else f"{rate * 100:.0f}%"
 
 
 def print_local_result_paths(results: dict):

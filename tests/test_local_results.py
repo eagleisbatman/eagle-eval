@@ -42,6 +42,7 @@ def test_local_run_writes_json_and_markdown_reports(tmp_path):
         (data_dir / "en_conv_01.json").write_text(json.dumps(_conversation()))
         result = runner.invoke(cli, ["run", "--languages", "en", "--max-concurrency", "2"])
         assert result.exit_code == 0, result.output
+        assert "Goal achievement: 1/1" in result.output
         assert "Local reports" in result.output
         run_files = sorted(Path("data/results/runs").glob("*.json"))
         markdown_files = sorted(Path("data/results/runs").glob("*.md"))
@@ -50,8 +51,15 @@ def test_local_run_writes_json_and_markdown_reports(tmp_path):
         report = json.loads(run_files[0].read_text())
         assert report["destination"] == "local"
         assert report["settings"]["concurrency_requested"] == 2
+        assert report["summary"]["goal_achievement"]["met"] == 1
+        assert report["summary"]["next_action_match"]["matched"] == 1
         assert report["items"][0]["evaluations"]
         assert report["scores"]["en"]["farmer_query_resolution"] == 0.8
+        assert report["scores"]["en"]["goal_achievement"] == 1.0
+        assert report["scores"]["en"]["next_action_match"] == 1.0
+        markdown = markdown_files[0].read_text()
+        assert "## Goal Summary" in markdown
+        assert "Goal achievement: `1/1`" in markdown
         assert any(evaluation["name"] == "farmer_query_resolution" for evaluation in report["items"][0]["evaluations"])
 
 
@@ -80,6 +88,8 @@ def _conversation() -> dict:
         "quality_status": "passed",
         "scenario": "missing_critical_context",
         "expected_next_action": "ask_clarification",
+        "required_clarification_slots": ["crop stage"],
+        "resolution_goal": "Ask for crop stage before giving crop disease advice.",
         "conversation_turns": [{"role": "user", "content": "My maize leaves have yellow spots."}],
     }
 

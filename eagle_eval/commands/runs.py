@@ -1,6 +1,5 @@
 """Experiment run and comparison commands."""
 
-import copy
 import json
 import sys
 from pathlib import Path
@@ -9,6 +8,7 @@ import click
 
 from eagle_eval.cli_output import err, heading, log, ok, print_comparison_table, print_local_result_paths, print_results_table, warn
 from eagle_eval.cli_runtime import load_config, parse_json_object, project_dir, resolve_languages
+from eagle_eval.targets import apply_target
 
 
 @click.command("run")
@@ -16,15 +16,20 @@ from eagle_eval.cli_runtime import load_config, parse_json_object, project_dir, 
 @click.option("--prompt-versions", default=None, help='JSON string like \'{"router":14,"grounding":3}\'. Defaults to current from config.')
 @click.option("--agent-module", default=None, help="Override agent.module for this run without editing eval_config.yaml")
 @click.option("--agent-function", default=None, help="Override agent.function for this run without editing eval_config.yaml")
+@click.option("--target", default=None, help="Named eval target from eval_targets")
 @click.option("--run-prefix", default="", help="Prefix local/hosted run names, useful when replaying one dataset across agents")
 @click.option("--max-concurrency", default=None, type=int, help="Override config concurrency")
 @click.option("--dry-run", is_flag=True)
 @click.option("--verbose", is_flag=True)
-def run(languages, prompt_versions, agent_module, agent_function, run_prefix, max_concurrency, dry_run, verbose):
+def run(languages, prompt_versions, agent_module, agent_function, target, run_prefix, max_concurrency, dry_run, verbose):
     """Run agent against eval datasets and score with evaluators."""
-    config = copy.deepcopy(load_config())
+    try:
+        config, target_config = apply_target(load_config(), target)
+    except ValueError as exc:
+        raise click.ClickException(str(exc)) from exc
     lang_codes = resolve_languages(config, languages)
     _apply_agent_overrides(config, agent_module, agent_function)
+    run_prefix = run_prefix or (target_config.get("name") if target_config else "")
     prompt_versions_value = parse_json_object(prompt_versions, "--prompt-versions") if prompt_versions else config["prompt_versions"]["current"]
     concurrency = max_concurrency if max_concurrency is not None else config["scoring"]["max_concurrency"]
     if concurrency < 1:
@@ -35,6 +40,8 @@ def run(languages, prompt_versions, agent_module, agent_function, run_prefix, ma
     log(f"  Prompt versions: {json.dumps(prompt_versions_value)}")
     log(f"  Concurrency: {concurrency}")
     log(f"  Agent: {config['agent']['module']}.{config['agent']['function']}")
+    if target_config:
+        log(f"  Eval target: {target_config['name']}")
     if run_prefix:
         log(f"  Run prefix: {run_prefix}")
     if dry_run:
@@ -43,6 +50,7 @@ def run(languages, prompt_versions, agent_module, agent_function, run_prefix, ma
 
     from eagle_eval.experiment import run_experiment
 
+    log("\n  Calling the agent and scoring goal achievement...", bold=True)
     results = run_experiment(
         config, lang_codes, prompt_versions_value, concurrency,
         run_prefix=run_prefix, verbose=verbose, project_dir=project_dir()
