@@ -56,7 +56,7 @@ def load_config(config_path: Path) -> dict:
             raise ValueError(f"{section} must be a mapping")
 
     if "writer" not in config["test_cases"] or "writer_model" not in config["test_cases"]:
-        raise ValueError("test_cases.writer and test_cases.writer_model are required, for example gemini and gemini-2.0-flash")
+        raise ValueError("test_cases.writer and test_cases.writer_model are required, for example vertex and gemini-2.0-flash")
 
     if "scorer" not in config["scoring"] or "scorer_model" not in config["scoring"]:
         raise ValueError("scoring.scorer and scoring.scorer_model are required, preferably a stronger model than the agent")

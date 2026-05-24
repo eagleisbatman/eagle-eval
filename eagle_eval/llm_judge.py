@@ -7,6 +7,7 @@ import logging
 import random
 import time
 
+from eagle_eval.google_genai_client import generate_text
 from eagle_eval.providers import normalize_provider
 
 log = logging.getLogger(__name__)
@@ -17,8 +18,8 @@ def judge_response(prompt: str, scorer: str | None, scorer_model: str, retries: 
     provider = normalize_provider(scorer, scorer_model or "")
     for attempt in range(retries):
         try:
-            if provider == "gemini":
-                text = _call_gemini(prompt, scorer_model)
+            if provider in {"gemini", "vertex"}:
+                text = _call_google(prompt, scorer_model, use_vertex=provider == "vertex")
             elif provider == "openai":
                 text = _call_openai(prompt, scorer_model)
             elif provider == "anthropic":
@@ -40,16 +41,8 @@ def retry_delay(attempt: int, base_seconds: float = 1.0, max_seconds: float = 30
     return exponential + jitter
 
 
-def _call_gemini(prompt: str, scorer_model: str) -> str:
-    try:
-        from google import genai
-
-        response = genai.Client().models.generate_content(model=scorer_model, contents=prompt)
-    except ImportError:
-        from google.generativeai import GenerativeModel
-
-        response = GenerativeModel(scorer_model).generate_content(prompt)
-    return response.text
+def _call_google(prompt: str, scorer_model: str, *, use_vertex: bool) -> str:
+    return generate_text(scorer_model, prompt, use_vertex=use_vertex)
 
 
 def _call_openai(prompt: str, scorer_model: str) -> str:

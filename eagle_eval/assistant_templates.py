@@ -68,7 +68,11 @@ Eagle Eval is a CLI execution engine. Codex is the interface.
 ## Safe Credential Handling
 
 If the user provides service keys in chat, place them in a local ignored file such as `.env.eagle-eval`.
+Use `~/.eagle-eval/.env` only for machine-wide defaults the user wants across projects.
 Make sure `.env.eagle-eval` is ignored by git. Store service names and models in `eval_config.yaml`, not secrets.
+Prefer Vertex AI Gemini for Google-backed writing/scoring:
+`GOOGLE_GENAI_USE_VERTEXAI=true`, `GOOGLE_CLOUD_PROJECT`, and `GOOGLE_CLOUD_LOCATION`.
+Use `GOOGLE_API_KEY` only when the config explicitly selects the Gemini Developer API path.
 Use `eagle-eval services --verbose` and `eagle-eval doctor` to report set/missing state without revealing values.
 
 ## Commands
@@ -119,6 +123,12 @@ Key terms:
 - Custom metric: a developer-owned scorer declared in `scoring.custom_metrics`.
 - Agent wrapper: the SDK-neutral `run_conversation(messages, language, prompt_versions=None)` function Eagle Eval imports.
 
+Google provider default:
+- Use Vertex AI Gemini for Google-backed writing/scoring.
+- Required env: `GOOGLE_GENAI_USE_VERTEXAI=true`, `GOOGLE_CLOUD_PROJECT`, and `GOOGLE_CLOUD_LOCATION`.
+- Store credentials in project `.env.eagle-eval` or global `~/.eagle-eval/.env`.
+- Use `GOOGLE_API_KEY` only when `eval_config.yaml` explicitly selects the Gemini Developer API path.
+
 Prefer dry runs before commands that call paid APIs or external services.
 """
 
@@ -145,8 +155,12 @@ Operating model:
 
 Safe credential handling:
 - If the user provides service keys in chat, place them in a local ignored file such as `.env.eagle-eval`.
+- Use `~/.eagle-eval/.env` only for machine-wide defaults the user wants across projects.
 - Make sure `.env.eagle-eval` is ignored by git.
 - Store service names and models in `eval_config.yaml`, not secrets.
+- Prefer Vertex AI Gemini for Google-backed writing/scoring:
+  `GOOGLE_GENAI_USE_VERTEXAI=true`, `GOOGLE_CLOUD_PROJECT`, and `GOOGLE_CLOUD_LOCATION`.
+- Use `GOOGLE_API_KEY` only when the config explicitly selects the Gemini Developer API path.
 - Use `eagle-eval services --verbose` and `eagle-eval doctor` to report set/missing state without revealing values.
 
 Commands:

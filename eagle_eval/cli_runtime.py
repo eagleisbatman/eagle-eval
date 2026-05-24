@@ -28,6 +28,13 @@ def data_dir() -> Path:
     return project_dir() / "data" / "synthetic"
 
 
+def loaded_env_files() -> list:
+    ctx = click.get_current_context(silent=True)
+    if ctx and ctx.obj:
+        return list(ctx.obj.get("env_files") or [])
+    return []
+
+
 def load_config() -> dict:
     from eagle_eval.config import load_config as load_config_file
 

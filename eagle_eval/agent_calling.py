@@ -11,8 +11,13 @@ def load_agent(config: dict):
         return getattr(module, function_name)
     except (ImportError, AttributeError) as exc:
         raise RuntimeError(
-            f"Cannot import agent: {module_name}.{function_name} — {exc}\n"
-            "Make sure the agent module is importable from the eval project directory."
+            f"Cannot import agent: {module_name}.{function_name} — {exc}\n\n"
+            "Common fixes:\n"
+            "  • Run from the project root (or use --project-dir)\n"
+            "  • Make sure the module path in eval_config.yaml matches your actual file structure\n"
+            "  • The wrapper must be named exactly 'run_conversation(messages, language, prompt_versions=None)'\n"
+            "  • For packages, ensure __init__.py exists and the path is importable\n\n"
+            "Run 'eagle-eval doctor' for more diagnostics."
         ) from exc
 
 

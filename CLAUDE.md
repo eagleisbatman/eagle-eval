@@ -1,11 +1,11 @@
 # Eagle Eval
 
-This project provides the Eagle Eval CLI for local-first agent evaluation. Local JSON/Markdown results are the default; Langfuse is the first hosted results service; LangSmith, OpenAI Evals, Gemini / Vertex AI evaluation, and Claude workflows are active design targets.
+This project provides the Eagle Eval CLI for local-first agent evaluation. Local JSON/Markdown results are the default; Langfuse is the first hosted results service; LangSmith, OpenAI Evals, Vertex AI Gemini, optional Gemini Developer API, and Claude workflows are active design targets.
 
 ## Setup
 
 ```bash
-cd eagle-eval && python -m pip install -e ".[dev,gemini]"
+cd eagle-eval && python -m pip install -e ".[dev,vertex]"
 eagle-eval init
 eagle-eval doctor
 eagle-eval services --verbose
@@ -42,7 +42,9 @@ Every command has `--help`. All config lives in `eval_config.yaml`. All commands
 - Agent examples must stay SDK-neutral: every sample should expose the same `run_conversation(messages, language, prompt_versions=None)` contract, whether it wraps Google ADK, OpenAI Agents SDK, Claude Code SDK, direct APIs, or custom app code.
 - `app_context` defines the product use case and North Star. Do not evaluate as a generic chatbot when this context exists.
 - Custom scoring functions are declared in `scoring.custom_metrics` with `module:function` paths owned by the evaluated project.
-- Gemini is the default broad multilingual test-case writer and scorer.
+- Vertex AI Gemini is the default broad multilingual test-case writer and scorer.
+- `GOOGLE_API_KEY` is only for the optional Gemini Developer API path.
+- Prefer `.env.eagle-eval` in the evaluated project or `~/.eagle-eval/.env` globally for credentials. Do not rely on shell exports.
 - OpenAI and Claude are valid writer/scorer services where their language coverage fits the target eval set.
 - Braintrust, Phoenix, and Promptfoo are deferred items only for now.
 - The `run` command imports and calls the actual agent defined in config. The agent must be importable from wherever this runs.

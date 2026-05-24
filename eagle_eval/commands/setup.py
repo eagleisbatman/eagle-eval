@@ -45,6 +45,17 @@ def init_command(
         if use_minimal else _prompt_config()
     )
     rendered_config = yaml.dump(config, default_flow_style=False, sort_keys=False, allow_unicode=True)
+
+    if use_minimal:
+        header = """# Eagle Eval Configuration (generated with --minimal)
+# Designed to be refined by your coding agent.
+# 1. Replace placeholders with real values from this repo.
+# 2. Ensure a run_conversation(...) wrapper exists.
+# 3. Run: eagle-eval doctor
+# See docs/north-star-resolution-policy.md (most important) and
+# docs/multi-agent-sequential-workflows.md for complex agents.
+"""
+        rendered_config = header + rendered_config
     if dry_run:
         warn("Dry run — no files were written")
         log("\n  Config preview:")
@@ -61,11 +72,18 @@ def init_command(
     data_dir().mkdir(parents=True, exist_ok=True)
 
     heading("Setup Complete")
-    log("  Next steps:")
+    log("  Eagle Eval 0.2.0 is ready for this project.")
+    log("")
     if use_minimal:
-        log("    1. Let Codex/Claude inspect the repo and refine app_context if needed")
-        log("    2. Confirm readiness with: eagle-eval doctor")
-        log("    3. Run a tiny local loop: generate --languages en, gate, upload, run")
+        log("  Best next steps:")
+        log("    • eagle-eval doctor --verbose")
+        log("    • Let your coding agent refine the config using the docs below")
+        log("    • Run a tiny baseline: generate --languages en, gate, upload, run")
+        log("")
+        log("  Essential reading:")
+        log("    docs/getting-started.md")
+        log("    docs/north-star-resolution-policy.md   ← start here for real signal")
+        log("    docs/multi-agent-sequential-workflows.md")
     else:
         log("    1. Set the API keys shown by: eagle-eval doctor")
         log(f"    2. Confirm the writer model: {config['test_cases']['writer_model']}")
@@ -84,9 +102,9 @@ def _prompt_config() -> dict:
     tier2 = [item.strip() for item in tier2_raw.split(",")] if tier2_raw.strip().lower() != "none" else []
     total_langs = click.prompt("  Total language count (tier 3 auto-filled)", default=50, type=int)
     prompt_versions = {name: click.prompt(f"    Current version for '{name}'", default=1, type=int) for name in _csv_prompt("  Managed prompt names (comma-separated)", "router,grounding,response-gen")}
-    writer = click.prompt("  Test-case writer service", default="gemini")
+    writer = click.prompt("  Test-case writer service", default="vertex")
     writer_model = click.prompt("  Test-case writer model", default="gemini-2.0-flash")
-    scorer = click.prompt("  Scoring service", default="gemini")
+    scorer = click.prompt("  Scoring service", default="vertex")
     scorer_model = click.prompt("  Scoring model", default="gemini-3.1-pro")
     destination = click.prompt("  Result destination", default="local")
     convs = click.prompt("  Conversations per language", default=10, type=int)
@@ -113,7 +131,7 @@ def _minimal_config(
     return _build_config(
         app_name, domain, user_persona, agent_module, agent_function,
         topic_values, tier1, [], max(1, len(tier1)), {"router": 1},
-        "gemini", "gemini-2.0-flash", "gemini", "gemini-3.1-pro", "local", 3, 3,
+        "vertex", "gemini-2.0-flash", "vertex", "gemini-3.1-pro", "local", 3, 3,
     )
 
 

@@ -3,7 +3,7 @@
 import click
 
 from eagle_eval.cli_output import heading, log, ok, warn
-from eagle_eval.cli_runtime import load_optional_config, project_dir
+from eagle_eval.cli_runtime import loaded_env_files, load_optional_config, project_dir
 
 
 @click.command()
@@ -11,6 +11,8 @@ from eagle_eval.cli_runtime import load_optional_config, project_dir
 def doctor(verbose):
     """Explain config roles and check local integration readiness."""
     heading("Eagle Eval Doctor")
+    if verbose:
+        _print_loaded_env_files()
     config = load_optional_config()
     if not config:
         warn("No eval_config.yaml found. Run 'eagle-eval init' first.")
@@ -41,6 +43,21 @@ def _print_config_roles(config: dict):
     log(f"    Test-case writer: {test_cases.get('writer', '?')} ({test_cases.get('writer_model', '?')})")
     log(f"    Scorer:           {scoring.get('scorer', '?')} ({scoring.get('scorer_model', '?')})")
     log(f"    Result destination: {results.get('destination', '?')}")
+
+
+def _print_loaded_env_files():
+    log("  Env files:")
+    statuses = loaded_env_files()
+    if not statuses:
+        log("    none loaded")
+        return
+    root = project_dir()
+    for status in statuses:
+        try:
+            path = status.path.relative_to(root)
+        except ValueError:
+            path = status.path
+        log(f"    {path} ({len(status.keys)} keys)")
 
 
 def _print_harness_next_steps(config: dict):
@@ -100,9 +117,21 @@ def _print_integration(item: dict, verbose: bool):
 
 
 def _print_custom_metrics(config: dict):
-    from eagle_eval.custom_scoring import check_custom_metrics
+    from eagle_eval.custom_scoring import check_custom_metrics, configured_custom_metrics
 
     statuses = check_custom_metrics(config, project_dir())
+    configured = configured_custom_metrics(config)
+
+    if not statuses and not configured:
+        # Gentle DX nudge — only shown once the core config looks basically ready
+        log("\n  Custom scorers (recommended next step):")
+        log("    You have no custom metrics yet. Once you have a baseline run,")
+        log("    create one that directly measures your North Star:")
+        log("      eagle-eval scorer init my_north_star_metric --sample")
+        log("    Then register it under scoring.custom_metrics in eval_config.yaml.")
+        log("    This is how you make Eagle Eval measure *your* product, not a generic chatbot.")
+        return
+
     if not statuses:
         return
     log("\n  Custom metrics:")

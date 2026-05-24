@@ -5,7 +5,7 @@ import json
 import click
 
 from eagle_eval.cli_output import format_readiness_map, heading, log, ok, warn
-from eagle_eval.cli_runtime import load_optional_config
+from eagle_eval.cli_runtime import loaded_env_files, load_optional_config, project_dir
 
 
 @click.command("services")
@@ -30,6 +30,8 @@ def services(json_output, verbose):
         return
 
     heading("Configured Services")
+    if verbose:
+        _print_loaded_env_files()
     for status in statuses:
         _print_service(status, verbose)
     if all(status["ready"] for status in statuses):
@@ -54,3 +56,18 @@ def _print_service(status: dict, verbose: bool):
         log(f"    Packages: {packages or 'none required'}")
         log(f"    Env: {env or 'none required'}")
         log(f"    Docs: {status['docs_url'] or 'not available'}")
+
+
+def _print_loaded_env_files():
+    statuses = loaded_env_files()
+    if not statuses:
+        log("  Env files: none loaded")
+        return
+    root = project_dir()
+    labels = []
+    for status in statuses:
+        try:
+            labels.append(str(status.path.relative_to(root)))
+        except ValueError:
+            labels.append(str(status.path))
+    log("  Env files: " + ", ".join(labels))

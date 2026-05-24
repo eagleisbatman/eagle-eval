@@ -3,7 +3,7 @@
 Install for live use:
     pip install claude-code-sdk
     npm install -g @anthropic-ai/claude-code
-    export ANTHROPIC_API_KEY=...
+    Add ANTHROPIC_API_KEY to .env.eagle-eval.
 """
 
 from __future__ import annotations

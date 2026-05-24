@@ -31,7 +31,12 @@ def _find_target(config: dict, target_name: str) -> dict:
         if target.get("name") == target_name:
             return target
     names = ", ".join(target_names(config)) or "none configured"
-    raise ValueError(f"Unknown eval target '{target_name}'. Available targets: {names}")
+    raise ValueError(
+        f"Unknown eval target '{target_name}'.\n"
+        f"Available targets: {names}\n\n"
+        "Tip: Define targets under 'eval_targets:' in eval_config.yaml, each with a unique 'name'.\n"
+        "See docs/multi-agent-sequential-workflows.md for examples with orchestrators and sub-flows."
+    )
 
 
 def _deep_merge(base: dict, override: dict) -> dict:

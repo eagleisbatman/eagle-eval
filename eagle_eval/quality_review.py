@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 
+from eagle_eval.google_genai_client import generate_text
 from eagle_eval.providers import normalize_provider
 
 log = logging.getLogger(__name__)
@@ -15,8 +16,8 @@ def review_conversation(conv: dict, provider: str, model: str, domain: str, pers
     prompt = _quality_prompt(conv, domain, persona)
     try:
         provider = normalize_provider(provider, model)
-        if provider == "gemini":
-            return _call_gemini_judge(model, prompt)
+        if provider in {"gemini", "vertex"}:
+            return _call_google_judge(model, prompt, use_vertex=provider == "vertex")
         if provider == "openai":
             return _call_openai_judge(model, prompt)
         if provider == "anthropic":
@@ -48,16 +49,8 @@ Respond with ONLY this JSON, no markdown fences:
 {{"naturalness": N, "topic_coverage": N, "difficulty_match": N, "language_quality": N, "overall": N, "issues": "description of any problems or empty string"}}"""
 
 
-def _call_gemini_judge(model: str, prompt: str) -> dict:
-    try:
-        from google import genai
-
-        response = genai.Client().models.generate_content(model=model, contents=prompt)
-    except ImportError:
-        from google.generativeai import GenerativeModel
-
-        response = GenerativeModel(model).generate_content(prompt)
-    return _parse_judge_response(response.text)
+def _call_google_judge(model: str, prompt: str, *, use_vertex: bool) -> dict:
+    return _parse_judge_response(generate_text(model, prompt, use_vertex=use_vertex))
 
 
 def _call_openai_judge(model: str, prompt: str) -> dict:

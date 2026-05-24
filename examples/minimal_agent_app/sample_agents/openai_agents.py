@@ -2,7 +2,7 @@
 
 Install for live use:
     pip install openai-agents
-    export OPENAI_API_KEY=...
+    Add OPENAI_API_KEY to .env.eagle-eval.
 """
 
 from __future__ import annotations

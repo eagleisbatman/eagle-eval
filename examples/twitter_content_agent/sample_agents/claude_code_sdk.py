@@ -6,8 +6,7 @@ Default mode is offline so Eagle Eval can run without credentials:
 Live mode:
     pip install claude-code-sdk
     npm install -g @anthropic-ai/claude-code
-    export ANTHROPIC_API_KEY=...
-    export EAGLE_EVAL_TWITTER_AGENT_MODE=live
+    Add ANTHROPIC_API_KEY and EAGLE_EVAL_TWITTER_AGENT_MODE to .env.eagle-eval.
 """
 
 from __future__ import annotations
@@ -75,4 +74,3 @@ async def _run_claude_code(prompt: str) -> str:
                 if text_blocks:
                     return "".join(text_blocks)
     return ""
-

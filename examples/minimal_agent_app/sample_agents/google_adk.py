@@ -2,7 +2,8 @@
 
 Install for live use:
     pip install google-adk
-    export GOOGLE_API_KEY=...
+    Add GOOGLE_GENAI_USE_VERTEXAI, GOOGLE_CLOUD_PROJECT, and
+    GOOGLE_CLOUD_LOCATION to .env.eagle-eval.
 """
 
 from __future__ import annotations

@@ -29,13 +29,14 @@ def err(msg):
 def banner():
     log("\n  Eagle Eval", bold=True, fg="cyan")
     log(f"  {BRAND_TAGLINE}", fg="cyan")
+    log("")
 
 
 def heading(msg):
     title = msg if msg.startswith("Eagle Eval") else f"Eagle Eval • {msg}"
-    log(f"\n{'─'*50}", fg="cyan")
+    log(f"\n  {'─' * 46}", fg="cyan")
     log(f"  {title}", bold=True, fg="cyan")
-    log(f"{'─'*50}", fg="cyan")
+    log(f"  {'─' * 46}", fg="cyan")
 
 
 def pct(n, total):

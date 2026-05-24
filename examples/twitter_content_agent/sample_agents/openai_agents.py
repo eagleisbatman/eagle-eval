@@ -5,8 +5,7 @@ Default mode is offline so Eagle Eval can run without credentials:
 
 Live mode:
     pip install openai-agents
-    export OPENAI_API_KEY=...
-    export EAGLE_EVAL_TWITTER_AGENT_MODE=live
+    Add OPENAI_API_KEY and EAGLE_EVAL_TWITTER_AGENT_MODE to .env.eagle-eval.
 """
 
 from __future__ import annotations
@@ -55,4 +54,3 @@ def run_conversation(messages, language, prompt_versions=None):
             "sources": source_payload(limit=3),
         },
     )
-

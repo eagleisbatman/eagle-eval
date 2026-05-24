@@ -6,6 +6,7 @@ import click
 
 from eagle_eval import __version__
 from eagle_eval.commands import register_commands
+from eagle_eval.env_loader import load_env_files
 
 
 @click.group()
@@ -24,6 +25,7 @@ def cli(ctx, project_dir):
     """
     ctx.ensure_object(dict)
     ctx.obj["project_dir"] = (project_dir or Path.cwd()).expanduser().resolve()
+    ctx.obj["env_files"] = load_env_files(ctx.obj["project_dir"])
 
 
 register_commands(cli)

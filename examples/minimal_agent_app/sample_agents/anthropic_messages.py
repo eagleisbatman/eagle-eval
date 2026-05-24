@@ -5,7 +5,7 @@ with the Anthropic SDK before adding their own tools or orchestration.
 
 Install for live use:
     pip install anthropic
-    export ANTHROPIC_API_KEY=...
+    Add ANTHROPIC_API_KEY to .env.eagle-eval.
 """
 
 from __future__ import annotations

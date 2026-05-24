@@ -5,8 +5,8 @@ Default mode is offline so Eagle Eval can run without credentials:
 
 Live mode:
     pip install google-adk
-    export GOOGLE_API_KEY=...
-    export EAGLE_EVAL_TWITTER_AGENT_MODE=live
+    Add GOOGLE_GENAI_USE_VERTEXAI, GOOGLE_CLOUD_PROJECT,
+    GOOGLE_CLOUD_LOCATION, and EAGLE_EVAL_TWITTER_AGENT_MODE to .env.eagle-eval.
 """
 
 from __future__ import annotations
@@ -88,4 +88,3 @@ async def _run_adk(prompt: str) -> str:
         if event.is_final_response() and event.content and event.content.parts:
             final_text = event.content.parts[0].text or final_text
     return final_text
-

@@ -1,8 +1,12 @@
 """Provider-name routing shared by generation and judging paths."""
 
 PROVIDER_ALIASES = {
-    "google": "gemini",
-    "google-gemini": "gemini",
+    "google": "vertex",
+    "google-gemini": "vertex",
+    "google-vertex": "vertex",
+    "vertex": "vertex",
+    "vertexai": "vertex",
+    "vertex-ai": "vertex",
     "claude": "anthropic",
     "anthropic": "anthropic",
     "openai": "openai",
@@ -18,7 +22,7 @@ def normalize_provider(provider: str | None, model: str) -> str:
 def infer_provider(model: str) -> str:
     model = model.lower()
     if "gemini" in model:
-        return "gemini"
+        return "vertex"
     if "claude" in model:
         return "anthropic"
     if model.startswith(("gpt-", "o1", "o3", "o4")):

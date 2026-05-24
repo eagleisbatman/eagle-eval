@@ -67,14 +67,15 @@ pip install claude-code-sdk
 npm install -g @anthropic-ai/claude-code
 ```
 
-Then set the relevant key and enable live mode:
+Then put the relevant values in `.env.eagle-eval` and enable live mode:
 
 ```bash
-export GOOGLE_API_KEY="..."
-export OPENAI_API_KEY="..."
-export ANTHROPIC_API_KEY="..."
-export EAGLE_EVAL_TWITTER_AGENT_MODE=live
+GOOGLE_GENAI_USE_VERTEXAI=true
+GOOGLE_CLOUD_PROJECT=your-gcp-project
+GOOGLE_CLOUD_LOCATION=us-central1
+OPENAI_API_KEY=...
+ANTHROPIC_API_KEY=...
+EAGLE_EVAL_TWITTER_AGENT_MODE=live
 ```
 
 Run the same commands above. Do not commit local reports or secrets.
-

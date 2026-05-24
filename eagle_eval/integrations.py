@@ -133,7 +133,7 @@ def _configured_roles(config: dict) -> list[dict[str, Any]]:
 def _infer_service_from_model(model: str) -> str:
     model = model.lower()
     if "gemini" in model:
-        return "gemini"
+        return "vertex"
     if "claude" in model:
         return "claude"
     if model.startswith(("gpt-", "o1", "o3", "o4")):

@@ -1,19 +1,43 @@
 # Eagle Eval
 
-Eagle Eval is a local-first CLI for evaluating agentic AI applications. It creates realistic multilingual test cases, checks test-case quality, runs your real agent, scores the agent's answers, and writes inspectable results you can use immediately.
+**Goal-first evaluation for real agentic systems.**
 
-The product is Eagle Eval. Local JSON and Markdown reports are the default. Langfuse is the first hosted results service; LangSmith, OpenAI Evals, Gemini / Vertex AI evaluation, and Claude workflows are active design targets.
+Eagle Eval is a local-first CLI that generates realistic, goal-aware test cases, runs your actual agent, scores outcomes against your product's North Star, and produces inspectable reports — all without requiring a hosted service for the core loop.
 
-## What You Get
+It is designed primarily to be driven by coding agents (Claude Code, Codex, Grok Build) rather than used as a heavy manual tool.
 
-After a complete eval run, you should have:
+Local JSON + Markdown reports are the excellent default. Langfuse is the first supported hosted destination. Other services remain active design targets.
 
-- generated test cases in `data/synthetic/`
-- `quality_report.json` showing which generated cases are good enough to use
-- a stored dataset of passing test cases, either locally or in the configured service
-- scored agent runs broken down by language and metric
-- a compare result that tells you whether a prompt/model change regressed
-- enough trace/run context to debug why the agent failed
+## Getting Started & Tutorials
+
+**Recommended path:** Let your coding agent (Claude Code, Codex, or Grok Build) drive Eagle Eval.
+
+**Start here:**
+- [Installation Guide](docs/installation.md) — How to get Eagle Eval on your machine (current reality while not on PyPI)
+
+Then:
+- [Getting Started Guide](docs/getting-started.md)
+- [Using with Grok Build](docs/using-with-grok-build.md)
+- [Using with Claude Code](docs/using-with-claude-code.md)
+- [Using with Codex](docs/using-with-codex.md)
+- [Multi-Agent & Sequential Workflows](docs/multi-agent-sequential-workflows.md)
+- [North Star + Resolution Policy](docs/north-star-resolution-policy.md) — read this early for real value
+- [Agent Prompt Templates](docs/agent-prompt-templates.md) — ready-to-use prompts for Grok, Claude Code, and Codex after installation
+
+## What You Actually Get
+
+After running the loop, you get something rare in the eval space:
+
+- Test cases that are aware of your resolution policy and expected agent behavior
+- Clear headline metrics: **Goal Achievement** and **Next Action Match** (not just generic scores)
+- Scenario breakdowns + recommended fixes based on real failures
+- The ability to compare an orchestrator against its sub-flows (`compare-targets`)
+- Beautiful, readable local Markdown + JSON reports by default
+- A system that gets dramatically more powerful the moment you add one custom scorer tied to your actual North Star
+
+This is evaluation that protects real user outcomes, not just LLM metrics.
+
+**Core belief:** The best eval system is one that makes your coding agents dramatically more effective at shipping reliable agentic software.
 
 The product roadmap is tracked in [ROADMAP.md](ROADMAP.md). The current
 priority is moving from generic metric-first output to goal-first scoring and
@@ -25,11 +49,11 @@ This is the mental model used across the major eval tools: Langfuse describes ev
 
 | Role | Meaning | Common choices |
 | --- | --- | --- |
-| Test-case writer | The model service that writes realistic user conversations for your domain and languages. | Gemini by default; OpenAI or Claude for narrower language sets or adversarial case writing. |
-| Scorer | The code or stronger model that grades your agent's answers. | Deterministic checks plus Gemini, OpenAI, or Claude. Use a stronger model than the agent when possible. |
-| Result destination | Where Eagle Eval stores datasets, run output, score summaries, and debug context. | Local files by default; Langfuse for hosted review; LangSmith, OpenAI Evals, Gemini / Vertex AI evaluation, and Claude workflows are being prepared. |
+| Test-case writer | The model service that writes realistic user conversations for your domain and languages. | Vertex AI Gemini by default; OpenAI or Claude for narrower language sets or adversarial case writing. |
+| Scorer | The code or stronger model that grades your agent's answers. | Deterministic checks plus Vertex AI Gemini, optional Gemini Developer API, OpenAI, or Claude. Use a stronger model than the agent when possible. |
+| Result destination | Where Eagle Eval stores datasets, run output, score summaries, and debug context. | Local files by default; Langfuse for hosted review; LangSmith, OpenAI Evals, Vertex AI Gemini, and Claude workflows are being prepared. |
 
-Gemini remains the default for broad multilingual case writing and scoring. OpenAI and Claude are valid choices when their language coverage fits the eval set or when you want a second opinion from a different model family.
+Vertex AI Gemini is the default for broad multilingual case writing and scoring. OpenAI and Claude are valid choices when their language coverage fits the eval set or when you want a second opinion from a different model family.
 
 ## Scoring
 
@@ -62,7 +86,7 @@ Supporting scores help explain failures and regressions:
 - `response_quality`: 0 to 1, model-scored
 - `pass_rate`: 0 to 1 aggregate
 
-Local runs use deterministic built-ins and custom scorers by default. Set `results.local.include_model_scorers: true` when you want local runs to call the configured Gemini, OpenAI, or Claude scorer model for model-judged supporting metrics.
+Local runs use deterministic built-ins and custom scorers by default. Set `results.local.include_model_scorers: true` when you want local runs to call the configured Vertex AI Gemini, optional Gemini Developer API, OpenAI, or Claude scorer model for model-judged supporting metrics.
 
 OpenAI's grader guidance also uses 0 to 1 grades, Langfuse supports numeric, categorical, boolean, and text scores, LangSmith evaluator feedback contains a metric key plus score/value and optional comment, Vertex AI supports model-based and computation-based metrics, and Claude recommends code-based, human, and LLM-based grading depending on reliability needs.
 
@@ -105,7 +129,7 @@ Developers can add domain-specific metrics from their own project without editin
 
 ```yaml
 scoring:
-  scorer: gemini
+  scorer: vertex
   scorer_model: gemini-3.1-pro
   custom_metrics:
     - name: farmer_query_resolution
@@ -158,25 +182,18 @@ Available starter templates:
 
 ## Install
 
+See the full [Installation Guide](docs/installation.md) for practical instructions.
+
+**Quick version (recommended for testing with coding agents):**
+
 ```bash
+git clone https://github.com/YOUR_ORG/eagle-eval.git
 cd eagle-eval
-python -m pip install -e ".[dev,gemini]"
+python -m pip install -e ".[dev,vertex]"
+eagle-eval install-assistants --tool all --scope global --yes
 ```
 
-Install every planned SDK check:
-
-```bash
-python -m pip install -e ".[all]"
-```
-
-Install individual SDKs:
-
-```bash
-python -m pip install -e ".[openai]"
-python -m pip install -e ".[anthropic]"
-python -m pip install -e ".[langsmith]"
-python -m pip install -e ".[vertex]"
-```
+After this, you can use Eagle Eval on any of your agent projects.
 
 ## One Setup For CLI, Codex, And Claude Code
 
@@ -312,17 +329,32 @@ eagle-eval services --verbose
 for, whether the wrapper path still looks like a placeholder, and whether the
 language set should be confirmed before broad generation.
 
-Local result files do not require service keys. Set only the keys for the services you use:
+Local result files do not require service keys. For live services, prefer env
+files over shell exports so Eagle Eval does not accidentally use unrelated keys
+from your terminal.
+
+Eagle Eval loads these files automatically, in this order:
+
+1. `~/.eagle-eval/.env` for machine-wide defaults
+2. `.env` in the evaluated project
+3. `.env.eagle-eval` in the evaluated project for Eagle Eval-specific overrides
 
 ```bash
-export GOOGLE_API_KEY="..."
-export LANGFUSE_PUBLIC_KEY="pk-..."
-export LANGFUSE_SECRET_KEY="sk-..."
-export LANGFUSE_HOST="https://cloud.langfuse.com"
-export OPENAI_API_KEY="..."
-export ANTHROPIC_API_KEY="..."
-export LANGSMITH_API_KEY="..."
+GOOGLE_GENAI_USE_VERTEXAI=true
+GOOGLE_CLOUD_PROJECT=your-gcp-project
+GOOGLE_CLOUD_LOCATION=us-central1
+LANGFUSE_PUBLIC_KEY=pk-...
+LANGFUSE_SECRET_KEY=sk-...
+LANGFUSE_HOST=https://cloud.langfuse.com
+OPENAI_API_KEY=...
+ANTHROPIC_API_KEY=...
+LANGSMITH_API_KEY=...
 ```
+
+Use `GOOGLE_API_KEY` only when you deliberately configure the optional Gemini
+Developer API path with `test_cases.writer: gemini` or `scoring.scorer: gemini`.
+Run `eagle-eval doctor --verbose` or `eagle-eval services --verbose` to see
+which env files were loaded without printing secret values.
 
 ## Run The Loop
 
@@ -409,11 +441,11 @@ app_context:
     definition: Farmer query resolved after safe answer or needed clarification.
 
 test_cases:
-  writer: gemini
+  writer: vertex
   writer_model: gemini-2.0-flash
 
 scoring:
-  scorer: gemini
+  scorer: vertex
   scorer_model: gemini-3.1-pro
   custom_metrics:
     - name: farmer_query_resolution
@@ -463,7 +495,7 @@ eagle-eval update
 - [LangSmith evaluation concepts](https://docs.langchain.com/langsmith/evaluation-concepts)
 - [OpenAI agent evals](https://developers.openai.com/api/docs/guides/agent-evals)
 - [OpenAI graders](https://developers.openai.com/api/docs/guides/graders)
-- [Vertex AI Gen AI evaluation service](https://cloud.google.com/vertex-ai/generative-ai/docs/model-reference/evaluation)
+- [Google Gen AI SDK on Vertex AI](https://cloud.google.com/vertex-ai/generative-ai/docs/sdks/overview)
 - [Claude evaluation tool](https://platform.claude.com/docs/en/test-and-evaluate/eval-tool)
 - [Claude eval design principles](https://platform.claude.com/docs/en/test-and-evaluate/develop-tests)
 
@@ -488,7 +520,7 @@ Before making it public:
 - verify OpenAI and Claude writing/scoring paths on representative language subsets
 - verify the Twitter/X content agent in live mode with Google ADK, OpenAI Agents SDK, and Claude SDK credentials
 - verify Langfuse upload/run/status behavior with live credentials
-- verify LangSmith, OpenAI Evals, Gemini / Vertex AI evaluation, and Claude workflows
+- verify LangSmith, OpenAI Evals, Vertex AI Gemini, optional Gemini Developer API, and Claude workflows
 - validate tier assignment and language-consistency scoring on lower-resource languages where language detection may be unreliable
 - decide the public license
 
