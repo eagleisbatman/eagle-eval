@@ -14,9 +14,16 @@ def test_install_assistants_writes_codex_and_claude_helpers(tmp_path):
         assert Path("CLAUDE.md").exists()
         assert Path(".codex/skills/eagle-eval/SKILL.md").exists()
         assert Path(".claude/skills/eagle-eval/SKILL.md").exists()
-        assert "Test-case writer" in Path("AGENTS.md").read_text()
-        assert "Codex is the interface" in Path(".codex/skills/eagle-eval/SKILL.md").read_text()
-        assert "eagle-eval doctor" in Path(".claude/skills/eagle-eval/SKILL.md").read_text()
+        agents_text = Path("AGENTS.md").read_text()
+        codex_skill = Path(".codex/skills/eagle-eval/SKILL.md").read_text()
+        claude_skill = Path(".claude/skills/eagle-eval/SKILL.md").read_text()
+        assert "Test-case writer" in agents_text
+        assert ".env.eagle-eval" in agents_text
+        assert "Vertex AI Gemini" in agents_text
+        assert "Codex is the interface" in codex_skill
+        assert ".env.eagle-eval" in codex_skill
+        assert "eagle-eval doctor" in claude_skill
+        assert ".env.eagle-eval" in claude_skill
 
 
 def test_install_assistants_can_install_only_codex_project_skill(tmp_path):

@@ -1,6 +1,5 @@
 """Assistant workflow templates written by install-assistants."""
 
-
 def agents_md() -> str:
     return """
 # Eagle Eval Agent Guide
@@ -13,6 +12,7 @@ Use Eagle Eval when the user asks to create, check, run, compare, or explain age
 - Run `eagle-eval services --verbose` before paid APIs or hosted result storage so the exact configured services are visible.
 - Run `eagle-eval context view` before judging quality so the app use case and North Star are visible.
 - Use `eagle-eval generate --dry-run`, `eagle-eval gate --dry-run`, or `eagle-eval run --dry-run` before commands that call paid APIs or a real agent.
+- Store service keys in project `.env.eagle-eval` or global `~/.eagle-eval/.env`; Vertex AI Gemini is the Google default, and `GOOGLE_API_KEY` is only for the explicit Gemini Developer API path.
 - Never overwrite generated data unless the user asks for it.
 
 ## Eval Flow
