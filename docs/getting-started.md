@@ -17,7 +17,7 @@ Follow the [Installation Guide](installation.md) for the recommended approach wh
 The fastest path for most people right now:
 
 ```bash
-git clone https://github.com/YOUR_ORG/eagle-eval.git
+git clone https://github.com/eagleisbatman/eagle-eval.git
 cd eagle-eval
 python -m pip install -e ".[dev,vertex]"
 eagle-eval install-assistants --tool all --scope global --yes

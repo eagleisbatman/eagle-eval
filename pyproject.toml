@@ -56,10 +56,10 @@ all = [
 eagle-eval = "eagle_eval.cli:cli"
 
 [project.urls]
-Homepage = "https://github.com/YOUR_ORG/eagle-eval"
-Documentation = "https://github.com/YOUR_ORG/eagle-eval#readme"
-Repository = "https://github.com/YOUR_ORG/eagle-eval"
-Changelog = "https://github.com/YOUR_ORG/eagle-eval/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/eagleisbatman/eagle-eval"
+Documentation = "https://github.com/eagleisbatman/eagle-eval#readme"
+Repository = "https://github.com/eagleisbatman/eagle-eval"
+Changelog = "https://github.com/eagleisbatman/eagle-eval/blob/main/CHANGELOG.md"
 
 [tool.setuptools.packages.find]
 include = ["eagle_eval*"]

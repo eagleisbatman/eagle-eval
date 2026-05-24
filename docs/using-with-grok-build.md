@@ -9,7 +9,7 @@ See the [Installation Guide](installation.md) first if you haven't installed Eag
 The recommended one-time setup for Grok Build users is:
 
 ```bash
-git clone https://github.com/YOUR_ORG/eagle-eval.git
+git clone https://github.com/eagleisbatman/eagle-eval.git
 cd eagle-eval
 python -m pip install -e ".[dev,vertex]"
 eagle-eval install-assistants --tool all --scope global --yes

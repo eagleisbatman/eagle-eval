@@ -187,7 +187,7 @@ See the full [Installation Guide](docs/installation.md) for practical instructio
 **Quick version (recommended for testing with coding agents):**
 
 ```bash
-git clone https://github.com/YOUR_ORG/eagle-eval.git
+git clone https://github.com/eagleisbatman/eagle-eval.git
 cd eagle-eval
 python -m pip install -e ".[dev,vertex]"
 eagle-eval install-assistants --tool all --scope global --yes
@@ -472,7 +472,7 @@ For a repo-backed private tool that should update when you push to `main`, add t
 
 ```yaml
 updates:
-  source: "git+https://github.com/YOUR_ORG/eagle-eval.git@main"
+  source: "git+https://github.com/eagleisbatman/eagle-eval.git@main"
 ```
 
 Then run:

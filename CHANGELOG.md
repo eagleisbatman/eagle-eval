@@ -53,5 +53,5 @@ Initial private release of Eagle Eval.
 
 ---
 
-[Unreleased]: https://github.com/YOUR_ORG/eagle-eval/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/YOUR_ORG/eagle-eval/releases/tag/v0.1.0
+[Unreleased]: https://github.com/eagleisbatman/eagle-eval/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/eagleisbatman/eagle-eval/releases/tag/v0.1.0

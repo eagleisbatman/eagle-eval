@@ -8,7 +8,7 @@ This guide explains how to install Eagle Eval so you can actually use it on your
 
 ```bash
 # 1. Clone the repo somewhere (you only need to do this once)
-git clone https://github.com/YOUR_ORG/eagle-eval.git
+git clone https://github.com/eagleisbatman/eagle-eval.git
 cd eagle-eval
 
 # 2. Install in editable mode with the extras you need
@@ -30,7 +30,7 @@ This is the path most people should take when they want to evaluate real agents.
 
 ```bash
 # Clone Eagle Eval (do this once)
-git clone https://github.com/YOUR_ORG/eagle-eval.git
+git clone https://github.com/eagleisbatman/eagle-eval.git
 cd eagle-eval
 
 # Install with Vertex AI Gemini (recommended Google path)
@@ -75,10 +75,10 @@ If you don't want to keep a local clone, you can install directly from Git:
 
 ```bash
 # Latest main
-python -m pip install "git+https://github.com/YOUR_ORG/eagle-eval.git@main"
+python -m pip install "git+https://github.com/eagleisbatman/eagle-eval.git@main"
 
 # With extras
-python -m pip install "git+https://github.com/YOUR_ORG/eagle-eval.git@main#egg=eagle-eval[vertex]"
+python -m pip install "git+https://github.com/eagleisbatman/eagle-eval.git@main#egg=eagle-eval[vertex]"
 ```
 
 **Note:** This method is less convenient for running `install-assistants` globally because the package is not in editable mode.
