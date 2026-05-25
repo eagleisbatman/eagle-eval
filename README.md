@@ -391,7 +391,10 @@ eagle-eval services
 eagle-eval status
 ```
 
-All commands support `--help`, `--dry-run`, and `--verbose`. Use `--project-dir /path/to/project` when the installed CLI should read or write a specific eval workspace instead of the current directory.
+All commands support `--help`. Most workflow commands also support `--dry-run`
+and `--verbose`; run `<command> --help` for command-specific options. Use
+`--project-dir /path/to/project` when the installed CLI should read or write a
+specific eval workspace instead of the current directory.
 
 ## Check Services
 
@@ -474,11 +477,11 @@ For a published package:
 eagle-eval update
 ```
 
-For a repo-backed private tool that should update when you push to `main`, add this to `eval_config.yaml`:
+For a repo-backed private tool, prefer an immutable tag or commit SHA. Add this to `eval_config.yaml`:
 
 ```yaml
 updates:
-  source: "git+https://github.com/eagleisbatman/eagle-eval.git@main"
+  source: "git+https://github.com/eagleisbatman/eagle-eval.git@v0.2.0"
 ```
 
 Then run:
@@ -487,6 +490,8 @@ Then run:
 eagle-eval update --dry-run
 eagle-eval update
 ```
+
+Non-default update sources ask for confirmation. Use `--yes` only in trusted automation.
 
 ## Design References
 

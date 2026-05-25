@@ -41,7 +41,7 @@ prompt_versions:
     twitter_content_prompt: 1
 
 test_cases:
-  writer: gemini
+  writer: vertex
   writer_model: gemini-2.0-flash
   conversations_per_language: 3
   turns_per_conversation: 1
@@ -49,7 +49,7 @@ test_cases:
   quality_threshold: 3.5
 
 scoring:
-  scorer: gemini
+  scorer: vertex
   scorer_model: gemini-3.1-pro
   max_concurrency: 2
   item_timeout_seconds: 120
@@ -72,4 +72,3 @@ results:
 
 langfuse:
   dataset_prefix: evals
-

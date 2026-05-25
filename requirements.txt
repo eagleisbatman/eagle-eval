@@ -9,3 +9,4 @@ tabulate>=0.9
 #   python -m pip install -e ".[anthropic]"
 #   python -m pip install -e ".[langsmith]"
 #   python -m pip install -e ".[vertex]"
+#   python -m pip install -e ".[bedrock]"

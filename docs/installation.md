@@ -72,16 +72,16 @@ python -m pip install -e ".[vertex,langfuse]"
 python -m pip install -e ".[gemini]"
 ```
 
-### 3. Using the Latest Version from Git (Without Cloning)
+### 3. Using a Pinned Version from Git (Without Cloning)
 
 If you don't want to keep a local clone, you can install directly from Git:
 
 ```bash
-# Latest main
-python -m pip install "git+https://github.com/eagleisbatman/eagle-eval.git@main"
+# Released tag or pinned commit SHA
+python -m pip install "git+https://github.com/eagleisbatman/eagle-eval.git@v0.2.0"
 
 # With extras
-python -m pip install "eagle-eval[vertex,bedrock] @ git+https://github.com/eagleisbatman/eagle-eval.git@main"
+python -m pip install "eagle-eval[vertex,bedrock] @ git+https://github.com/eagleisbatman/eagle-eval.git@v0.2.0"
 ```
 
 **Note:** This method is less convenient for running `install-assistants` globally because the package is not in editable mode.
@@ -91,7 +91,7 @@ python -m pip install "eagle-eval[vertex,bedrock] @ git+https://github.com/eagle
 Until Eagle Eval is on PyPI, you can still install the CLI globally from Git:
 
 ```bash
-pipx install "eagle-eval[vertex,bedrock] @ git+https://github.com/eagleisbatman/eagle-eval.git@main"
+pipx install "eagle-eval[vertex,bedrock] @ git+https://github.com/eagleisbatman/eagle-eval.git@v0.2.0"
 eagle-eval install-assistants --tool all --scope global --yes
 ```
 

@@ -39,7 +39,7 @@ prompt_versions:
     advisory_prompt: 1
 
 test_cases:
-  writer: gemini
+  writer: vertex
   writer_model: gemini-2.0-flash
   conversations_per_language: 1
   turns_per_conversation: 2
@@ -47,7 +47,7 @@ test_cases:
   quality_threshold: 3.5
 
 scoring:
-  scorer: gemini
+  scorer: vertex
   scorer_model: gemini-3.1-pro
   max_concurrency: 2
   item_timeout_seconds: 120

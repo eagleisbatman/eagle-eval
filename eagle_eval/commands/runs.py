@@ -19,9 +19,10 @@ from eagle_eval.targets import apply_target
 @click.option("--target", default=None, help="Named eval target from eval_targets")
 @click.option("--run-prefix", default="", help="Prefix local/hosted run names, useful when replaying one dataset across agents")
 @click.option("--max-concurrency", default=None, type=int, help="Override config concurrency")
+@click.option("--json-output", is_flag=True, help="Print machine-readable JSON only")
 @click.option("--dry-run", is_flag=True)
 @click.option("--verbose", is_flag=True)
-def run(languages, prompt_versions, agent_module, agent_function, target, run_prefix, max_concurrency, dry_run, verbose):
+def run(languages, prompt_versions, agent_module, agent_function, target, run_prefix, max_concurrency, json_output, dry_run, verbose):
     """Run agent against eval datasets and score with evaluators."""
     try:
         config, target_config = apply_target(load_config(), target)
@@ -35,26 +36,30 @@ def run(languages, prompt_versions, agent_module, agent_function, target, run_pr
     if concurrency < 1:
         raise click.BadParameter("must be at least 1", param_hint="--max-concurrency")
 
-    heading("Run Experiment")
-    log(f"  Languages: {', '.join(lang_codes)}")
-    log(f"  Prompt versions: {json.dumps(prompt_versions_value)}")
-    log(f"  Concurrency: {concurrency}")
-    log(f"  Agent: {config['agent']['module']}.{config['agent']['function']}")
-    if target_config:
-        log(f"  Eval target: {target_config['name']}")
-    if run_prefix:
-        log(f"  Run prefix: {run_prefix}")
+    plan = _run_plan(config, lang_codes, prompt_versions_value, concurrency, target_config, run_prefix)
+    if json_output and dry_run:
+        click.echo(json.dumps({"dry_run": True, "plan": plan}, indent=2, ensure_ascii=False))
+        return
+    if not json_output:
+        _print_run_plan(plan)
     if dry_run:
         warn("Dry run — agent will not be called")
         return
 
     from eagle_eval.experiment import run_experiment
 
-    log("\n  Calling the agent and scoring goal achievement...", bold=True)
-    results = run_experiment(
-        config, lang_codes, prompt_versions_value, concurrency,
-        run_prefix=run_prefix, verbose=verbose, project_dir=project_dir()
-    )
+    if not json_output:
+        log("\n  Calling the agent and scoring goal achievement...", bold=True)
+    try:
+        results = run_experiment(
+            config, lang_codes, prompt_versions_value, concurrency,
+            run_prefix=run_prefix, verbose=verbose, project_dir=project_dir()
+        )
+    except (RuntimeError, ValueError) as exc:
+        raise click.ClickException(str(exc)) from exc
+    if json_output:
+        click.echo(json.dumps(results, indent=2, ensure_ascii=False))
+        return
     heading("Results")
     print_results_table(results)
     print_local_result_paths(results)
@@ -108,6 +113,31 @@ def _apply_agent_overrides(config: dict, module: str | None, function: str | Non
         config["agent"]["module"] = module
     if function:
         config["agent"]["function"] = function
+
+
+def _run_plan(config: dict, lang_codes: list[str], prompt_versions: dict, concurrency: int, target_config: dict | None, run_prefix: str) -> dict:
+    plan = {
+        "languages": lang_codes,
+        "prompt_versions": prompt_versions,
+        "concurrency": concurrency,
+        "agent": f"{config['agent']['module']}.{config['agent']['function']}",
+        "run_prefix": run_prefix,
+    }
+    if target_config:
+        plan["target"] = target_config["name"]
+    return plan
+
+
+def _print_run_plan(plan: dict) -> None:
+    heading("Run Experiment")
+    log(f"  Languages: {', '.join(plan['languages'])}")
+    log(f"  Prompt versions: {json.dumps(plan['prompt_versions'])}")
+    log(f"  Concurrency: {plan['concurrency']}")
+    log(f"  Agent: {plan['agent']}")
+    if plan.get("target"):
+        log(f"  Eval target: {plan['target']}")
+    if plan.get("run_prefix"):
+        log(f"  Run prefix: {plan['run_prefix']}")
 
 
 def _write_comparison(output: str | None, baseline_results: dict, candidate_results: dict, regressions: list[dict]):

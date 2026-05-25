@@ -1,11 +1,10 @@
 """Generate, gate, and upload commands."""
 
-import json
-
 import click
 
 from eagle_eval.cli_output import err, heading, log, ok, pct, warn
 from eagle_eval.cli_runtime import data_dir, load_config, project_dir, resolve_languages
+from eagle_eval.file_io import atomic_write_json
 
 
 @click.command()
@@ -66,7 +65,7 @@ def gate(dry_run, verbose):
     if dry_run:
         warn("\nDry run — quality report was not written")
     else:
-        report_path.write_text(json.dumps(results, indent=2, ensure_ascii=False), encoding="utf-8")
+        atomic_write_json(report_path, results)
         log(f"\n  Full report: {report_path}")
 
 
@@ -84,11 +83,17 @@ def upload(languages, recreate, dry_run, verbose):
     heading("Send to Result Destination")
     log(f"  Languages: {', '.join(lang_codes)}")
     log(f"  Mode: {'recreate' if recreate else 'append'}")
+    destination = str(config.get("results", {}).get("destination", "langfuse")).strip().lower()
+    if destination == "langfuse" and not recreate:
+        warn("Langfuse append mode may duplicate existing items. Use --recreate for a clean hosted dataset.")
     if dry_run:
         warn("Dry run — nothing will be uploaded")
 
     log("\n  Preparing datasets for eval runs...", bold=True)
-    results = run_upload(config, lang_codes, data_dir(), recreate=recreate, dry_run=dry_run, verbose=verbose)
+    try:
+        results = run_upload(config, lang_codes, data_dir(), recreate=recreate, dry_run=dry_run, verbose=verbose)
+    except (RuntimeError, ValueError) as exc:
+        raise click.ClickException(str(exc)) from exc
     heading("Upload Complete")
     for dataset_name, count in results["datasets"].items():
         ok(f"{dataset_name}: {count} items")

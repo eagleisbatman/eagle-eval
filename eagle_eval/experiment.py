@@ -6,6 +6,8 @@ import logging
 from pathlib import Path
 from datetime import datetime, timezone
 
+from eagle_eval.agent_calling import call_agent
+
 log = logging.getLogger(__name__)
 
 
@@ -89,23 +91,7 @@ def run_experiment(config: dict, lang_codes: list[str], prompt_versions: dict,
 
         # Build the task function
         def task(*, item, **kwargs):
-            language = item.input.get("language", "en")
-            turns = item.input.get("conversation_turns", [])
-
-            try:
-                result = agent_fn(
-                    messages=turns,
-                    language=language,
-                    prompt_versions=prompt_versions,
-                )
-            except TypeError:
-                # Agent might not accept prompt_versions — try without
-                result = agent_fn(messages=turns, language=language)
-
-            if not isinstance(result, dict):
-                result = {"responses": [str(result)], "tools_called": [], "metadata": {}}
-
-            return result
+            return call_agent(agent_fn, item.input, prompt_versions)
 
         # Run per language
         all_scores = {}

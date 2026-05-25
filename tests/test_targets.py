@@ -54,6 +54,25 @@ def test_compare_targets_dry_run_validates_target_plan(tmp_path):
         assert "Dry run" in result.output
 
 
+def test_compare_targets_validates_concurrency(tmp_path):
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        write_config(Path("eval_config.yaml"))
+        _append_targets(Path("eval_config.yaml"), ["orchestrator", "research"])
+
+        result = runner.invoke(
+            cli,
+            [
+                "compare-targets", "--orchestrator", "orchestrator",
+                "--sub-targets", "research", "--languages", "en",
+                "--max-concurrency", "0", "--dry-run",
+            ],
+        )
+
+        assert result.exit_code != 0
+        assert "must be at least 1" in result.output
+
+
 def test_build_target_comparison_flags_weaker_orchestrator():
     comparison = build_target_comparison(
         {

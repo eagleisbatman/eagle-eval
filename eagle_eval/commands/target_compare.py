@@ -7,6 +7,7 @@ import click
 
 from eagle_eval.cli_output import heading, log, ok, warn
 from eagle_eval.cli_runtime import load_config, parse_json_object, project_dir, resolve_languages
+from eagle_eval.file_io import atomic_write_json
 from eagle_eval.target_compare import build_target_comparison
 from eagle_eval.targets import apply_target, target_names
 
@@ -32,6 +33,8 @@ def compare_targets(orchestrator, sub_targets, languages, prompt_versions, max_c
     lang_codes = resolve_languages(config, languages)
     prompt_versions_value = parse_json_object(prompt_versions, "--prompt-versions") if prompt_versions else config["prompt_versions"]["current"]
     concurrency = max_concurrency if max_concurrency is not None else config["scoring"]["max_concurrency"]
+    if concurrency < 1:
+        raise click.BadParameter("must be at least 1", param_hint="--max-concurrency")
 
     heading("Compare Eval Targets")
     log(f"  Orchestrator: {orchestrator}")
@@ -92,5 +95,5 @@ def _rate(value: float | None) -> str:
 def _write_output(output: str | None, comparison: dict, results: dict):
     if not output:
         return
-    Path(output).write_text(json.dumps({"comparison": comparison, "results": results}, indent=2), encoding="utf-8")
+    atomic_write_json(Path(output), {"comparison": comparison, "results": results})
     log(f"\n  Results written to {output}")

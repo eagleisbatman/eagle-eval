@@ -164,10 +164,18 @@ def test_invalid_prompt_versions_returns_click_error(tmp_path):
 def test_update_dry_run_prints_pip_upgrade_command(tmp_path):
     runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=tmp_path):
-        result = runner.invoke(cli, ["update", "--dry-run", "--source", "git+https://github.com/example/eagle-eval.git@main"])
+        result = runner.invoke(cli, ["update", "--dry-run", "--source", "git+https://github.com/example/eagle-eval.git@v0.2.0"])
         assert result.exit_code == 0, result.output
         assert "pip install --upgrade" in result.output
-        assert "github.com/example/eagle-eval.git@main" in result.output
+        assert "github.com/example/eagle-eval.git@v0.2.0" in result.output
+
+
+def test_update_rejects_option_like_source(tmp_path):
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(cli, ["update", "--dry-run", "--source=-r"])
+        assert result.exit_code != 0
+        assert "cannot start with '-'" in result.output
 
 
 def test_self_update_alias_is_not_registered():

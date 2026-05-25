@@ -1,12 +1,11 @@
 """Custom scorer commands."""
-
 import json
 from pathlib import Path
 
 import click
 
 from eagle_eval.cli_output import heading, log, ok, warn
-from eagle_eval.cli_runtime import load_config, load_optional_config, project_dir
+from eagle_eval.cli_runtime import load_config, load_optional_config, project_dir, read_json_file
 
 
 @click.group("scorer")
@@ -68,7 +67,8 @@ def scorer_init(name, force, sample):
 @scorer_group.command("test")
 @click.argument("name")
 @click.option("--sample", "sample_path", type=click.Path(dir_okay=False, path_type=Path), default=None, help="JSON file with input/output/expected_output/metadata")
-def scorer_test(name, sample_path):
+@click.option("--json-output", is_flag=True, help="Print machine-readable JSON only")
+def scorer_test(name, sample_path, json_output):
     """Run one custom scorer locally against a sample JSON payload."""
     config = load_config()
     from eagle_eval.custom_scoring import load_custom_evaluator
@@ -81,6 +81,9 @@ def scorer_test(name, sample_path):
         expected_output=payload.get("expected_output", {}),
         metadata=payload.get("metadata", {}),
     )
+    if json_output:
+        click.echo(json.dumps({"name": result.name, "score": result.value, "comment": result.comment}, indent=2, ensure_ascii=False))
+        return
     heading("Scorer Test")
     log(f"  Name:    {result.name}")
     log(f"  Score:   {result.value:.3f}")
@@ -98,7 +101,7 @@ def _load_sample_payload(name: str, sample_path: Path | None) -> dict:
     from eagle_eval.scorer_templates import sample_case
 
     if sample_path:
-        return json.loads(Path(sample_path).read_text(encoding="utf-8"))
+        return read_json_file(Path(sample_path), "scorer sample JSON")
     return sample_case(name)
 
 

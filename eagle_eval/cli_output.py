@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import click
@@ -11,19 +12,22 @@ BRAND_TAGLINE = "Goal-first eval runner for AI agents"
 
 
 def log(msg, bold=False, fg=None):
+    if plain_mode():
+        click.echo(msg)
+        return
     click.echo(click.style(msg, bold=bold, fg=fg))
 
 
 def ok(msg):
-    log(f"  ✓ {msg}", fg="green")
+    log(f"  {_symbol('OK', '✓')} {msg}", fg="green")
 
 
 def warn(msg):
-    log(f"  ⚠ {msg}", fg="yellow")
+    log(f"  {_symbol('WARN', '⚠')} {msg}", fg="yellow")
 
 
 def err(msg):
-    log(f"  ✗ {msg}", fg="red")
+    log(f"  {_symbol('ERR', '✗')} {msg}", fg="red")
 
 
 def banner():
@@ -34,9 +38,10 @@ def banner():
 
 def heading(msg):
     title = msg if msg.startswith("Eagle Eval") else f"Eagle Eval • {msg}"
-    log(f"\n  {'─' * 46}", fg="cyan")
+    rule = "-" * 46 if plain_mode() else "─" * 46
+    log(f"\n  {rule}", fg="cyan")
     log(f"  {title}", bold=True, fg="cyan")
-    log(f"  {'─' * 46}", fg="cyan")
+    log(f"  {rule}", fg="cyan")
 
 
 def pct(n, total):
@@ -63,7 +68,7 @@ def print_results_table(results: dict):
         for lang, scores in results.get("scores", {}).items()
         for metric, value in scores.items()
     ]
-    log(tabulate(rows, headers=["Language", "Metric", "Score"], tablefmt="rounded_grid"))
+    log(tabulate(rows, headers=["Language", "Metric", "Score"], tablefmt=_table_format()))
 
 
 def _print_goal_summary(summary: dict):
@@ -120,13 +125,13 @@ def print_comparison_table(baseline_results: dict, candidate_results: dict, thre
             base = baseline_results["scores"][lang].get(metric, 0)
             candidate = candidate_results["scores"][lang].get(metric, 0)
             delta = candidate - base
-            status = "✓" if delta >= -threshold else "⚠ REG"
+            status = _symbol("OK", "✓") if delta >= -threshold else _symbol("REG", "⚠ REG")
             if delta < -threshold:
                 regressions.append({"lang": lang, "metric": metric, "delta": delta})
             rows.append([lang, metric, f"{base:.3f}", f"{candidate:.3f}", f"{delta:+.3f}", status])
 
     if tabulate:
-        log(tabulate(rows, headers=["Language", "Metric", "Baseline", "Candidate", "Delta", "Status"], tablefmt="rounded_grid"))
+        log(tabulate(rows, headers=["Language", "Metric", "Baseline", "Candidate", "Delta", "Status"], tablefmt=_table_format()))
     else:
         for row in rows:
             log(f"  {row[0]:6s} {row[1]:25s} {row[2]:8s} {row[3]:8s} {row[4]:8s} {row[5]}")
@@ -157,3 +162,15 @@ def _print_runs(runs_dir: Path):
     ok(f"Local runs: {len(runs)} JSON report(s)")
     if runs:
         log(f"    Latest: {runs[-1]}")
+
+
+def plain_mode() -> bool:
+    return str(os.environ.get("EAGLE_EVAL_PLAIN", "")).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _symbol(plain: str, styled: str) -> str:
+    return f"[{plain}]" if plain_mode() else styled
+
+
+def _table_format() -> str:
+    return "simple" if plain_mode() else "rounded_grid"

@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-import importlib
 import inspect
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
+from eagle_eval.custom_metric_checks import check_metric_path, split_metric_path
 from eagle_eval.evaluation_types import Evaluation
+from eagle_eval.imports import import_from_project
 
 
 @dataclass(frozen=True)
@@ -44,11 +44,11 @@ def configured_custom_metrics(config: dict) -> list[dict]:
 
 
 def check_custom_metrics(config: dict, project_dir: Path) -> list[CustomMetricStatus]:
-    """Return import readiness for custom metrics without raising."""
+    """Return static readiness for custom metrics without executing project code."""
     statuses = []
     for metric in _custom_metrics(config):
         try:
-            _load_callable(metric["path"], project_dir)
+            check_metric_path(metric["path"], project_dir)
             statuses.append(CustomMetricStatus(name=metric["name"], path=metric["path"], ok=True))
         except Exception as exc:
             statuses.append(
@@ -63,36 +63,12 @@ def _custom_metrics(config: dict) -> list[dict]:
 
 
 def _load_callable(path: str, project_dir: Path) -> Callable[..., Any]:
-    if ":" not in path:
-        raise ValueError(f"Custom metric path must use module:function format: {path}")
-
-    module_name, function_name = path.split(":", 1)
-    project_path = str(project_dir.expanduser().resolve())
-    if project_path not in sys.path:
-        sys.path.insert(0, project_path)
-
-    importlib.invalidate_caches()
-    _remove_stale_project_modules(module_name, project_path)
-    module = importlib.import_module(module_name)
-    scorer_fn = getattr(module, function_name)
+    metric_path = split_metric_path(path)
+    module = import_from_project(project_dir, metric_path.module_name)
+    scorer_fn = getattr(module, metric_path.function_name)
     if not callable(scorer_fn):
         raise TypeError(f"Custom metric is not callable: {path}")
     return scorer_fn
-
-
-def _remove_stale_project_modules(module_name: str, project_path: str) -> None:
-    package_name = module_name.split(".", 1)[0]
-    package = sys.modules.get(package_name)
-    if package is None:
-        return
-
-    package_paths = [str(Path(path).resolve()) for path in getattr(package, "__path__", [])]
-    if any(path.startswith(project_path) for path in package_paths):
-        return
-
-    for loaded_name in list(sys.modules):
-        if loaded_name == package_name or loaded_name.startswith(f"{package_name}."):
-            del sys.modules[loaded_name]
 
 
 def _wrap_metric(metric: dict, scorer_fn: Callable[..., Any], app_context: dict) -> Callable[..., Evaluation]:

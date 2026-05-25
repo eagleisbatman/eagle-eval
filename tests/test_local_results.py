@@ -22,6 +22,39 @@ def test_local_upload_writes_dataset_file(tmp_path):
         assert payload[0]["expected_output"]["scenario"] == "missing_critical_context"
 
 
+def test_local_upload_is_idempotent_by_conversation_id(tmp_path):
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        write_config(Path("eval_config.yaml"), destination="local")
+        data_dir = Path("data/synthetic/en")
+        data_dir.mkdir(parents=True)
+        (data_dir / "en_conv_01.json").write_text(json.dumps(_conversation()))
+        first = runner.invoke(cli, ["upload", "--languages", "en"])
+        second = runner.invoke(cli, ["upload", "--languages", "en"])
+        assert first.exit_code == 0, first.output
+        assert second.exit_code == 0, second.output
+
+        payload = json.loads(Path("data/results/datasets/en_conversations.json").read_text())
+        assert len(payload) == 1
+        assert payload[0]["metadata"]["conversation_id"] == "en_conv_01"
+
+
+def test_local_upload_requires_explicit_quality_status(tmp_path):
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        write_config(Path("eval_config.yaml"), destination="local")
+        data_dir = Path("data/synthetic/en")
+        data_dir.mkdir(parents=True)
+        conversation = _conversation()
+        conversation.pop("quality_status")
+        (data_dir / "en_conv_01.json").write_text(json.dumps(conversation))
+        result = runner.invoke(cli, ["upload", "--languages", "en"])
+        assert result.exit_code == 0, result.output
+
+        payload = json.loads(Path("data/results/datasets/en_conversations.json").read_text())
+        assert payload == []
+
+
 def test_local_run_writes_json_and_markdown_reports(tmp_path):
     runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=tmp_path):
@@ -63,6 +96,24 @@ def test_local_run_writes_json_and_markdown_reports(tmp_path):
         assert any(evaluation["name"] == "farmer_query_resolution" for evaluation in report["items"][0]["evaluations"])
 
 
+def test_local_run_records_item_failure_and_writes_report(tmp_path):
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        write_config(Path("eval_config.yaml"), destination="local")
+        _write_failing_agent()
+        config_path = Path("eval_config.yaml")
+        config_path.write_text(config_path.read_text().replace("  module: tests.fake_agent", "  module: app.agent"))
+        data_dir = Path("data/synthetic/en")
+        data_dir.mkdir(parents=True)
+        (data_dir / "en_conv_01.json").write_text(json.dumps(_conversation()))
+        result = runner.invoke(cli, ["run", "--languages", "en"])
+        assert result.exit_code == 0, result.output
+
+        report = json.loads(next(Path("data/results/runs").glob("*.json")).read_text())
+        assert report["items"][0]["output"]["error"] == "agent exploded"
+        assert report["items"][0]["evaluations"][0]["name"] == "run_error"
+
+
 def test_local_status_reports_datasets_and_runs(tmp_path):
     runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=tmp_path):
@@ -101,6 +152,16 @@ def _write_agent():
     (app_dir / "agent.py").write_text(
         "def run_conversation(messages, language, prompt_versions=None):\n"
         "    return {'responses': ['Which crop stage is the maize in?'], 'metadata': {}}\n"
+    )
+
+
+def _write_failing_agent():
+    app_dir = Path("app")
+    app_dir.mkdir()
+    (app_dir / "__init__.py").write_text("")
+    (app_dir / "agent.py").write_text(
+        "def run_conversation(messages, language, prompt_versions=None):\n"
+        "    raise RuntimeError('agent exploded')\n"
     )
 
 

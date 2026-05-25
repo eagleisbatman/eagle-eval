@@ -86,4 +86,4 @@ langfuse:
   dataset_prefix: evals
 
 updates:
-  source: "git+https://github.com/YOUR_ORG/eagle-eval.git@main"
+  source: "git+https://github.com/YOUR_ORG/eagle-eval.git@v0.2.0"

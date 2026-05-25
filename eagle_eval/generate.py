@@ -7,6 +7,9 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+from eagle_eval.file_io import atomic_write_json
+from eagle_eval.job_runner import run_ordered
+
 log = logging.getLogger(__name__)
 
 
@@ -50,7 +53,6 @@ def run_generation(config: dict, lang_codes: list[str], proj_dir: Path, verbose:
 
     topics = _load_topics(proj_dir / "config" / "topics.json")
     test_cases = config["test_cases"]
-    from eagle_eval.generation_clients import call_generation_model
     from eagle_eval.providers import infer_provider
 
     writer = test_cases.get("writer") or infer_provider(test_cases["writer_model"])
@@ -70,6 +72,7 @@ def run_generation(config: dict, lang_codes: list[str], proj_dir: Path, verbose:
     failed = 0
     sample = None
     manifest_entries = []
+    jobs = []
 
     for lang_code in lang_codes:
         lang_name = get_language_name(lang_code)
@@ -82,58 +85,17 @@ def run_generation(config: dict, lang_codes: list[str], proj_dir: Path, verbose:
         for idx, (topic, difficulty) in enumerate(assignments):
             conv_id = f"{lang_code}_conv_{idx+1:02d}"
             out_path = lang_dir / f"{conv_id}.json"
+            prompt = _generation_prompt(persona, lang_name, lang_code, domain, topic, difficulty, turns, north_star, resolution_policy)
+            jobs.append((conv_id, lang_code, lang_name, topic, difficulty, out_path, prompt))
 
-            if out_path.exists():
-                log.info(f"Skipping {conv_id} — already exists")
-                manifest_entries.append(_manifest_entry(conv_id, lang_code, topic, out_path))
-                generated += 1
-                continue
-
-            prompt = GENERATION_PROMPT.format(
-                user_persona=persona,
-                language_name=lang_name,
-                language_code=lang_code,
-                domain=domain,
-                topic_name=topic["name"],
-                topic_description=topic["description"],
-                topic_id=topic["id"],
-                difficulty=difficulty,
-                num_turns=turns,
-                north_star_name=north_star.get("name", "unknown"),
-                north_star_definition=north_star.get("definition", ""),
-                resolution_policy=json.dumps(resolution_policy, ensure_ascii=False),
-            )
-
-            log.info(f"Generating {conv_id} ({lang_name}, {topic['name']}, {difficulty})")
-
-            conversation = call_generation_model(writer, model, prompt, retries=3)
-            if conversation is None:
-                log.error(f"Failed to generate {conv_id} after 3 retries")
-                failed += 1
-                continue
-
-            # Enrich and save
-            conversation["conversation_id"] = conv_id
-            conversation["language"] = lang_code
-            conversation["language_name"] = lang_name
-            conversation["primary_topic"] = topic["id"]
-            conversation["difficulty_requested"] = difficulty
-            conversation["generated_by"] = model
-            conversation["generated_at"] = datetime.now(timezone.utc).isoformat()
-
-            out_path.write_text(json.dumps(conversation, indent=2, ensure_ascii=False))
-            manifest_entries.append(_manifest_entry(conv_id, lang_code, topic, out_path))
-            generated += 1
-
-            if sample is None:
-                sample = {
-                    "language": lang_code,
-                    "topic": topic["name"],
-                    "turns": conversation.get("conversation_turns", []),
-                }
-
-            # Rate limiting
-            time.sleep(0.5)
+    for result in run_ordered(jobs, max_concurrency, lambda job: _generate_one(job, writer, model)):
+        if result["status"] == "failed":
+            failed += 1
+            continue
+        generated += 1
+        manifest_entries.append(result["manifest"])
+        if sample is None and result.get("sample"):
+            sample = result["sample"]
 
     # Write manifest
     manifest = {
@@ -141,7 +103,7 @@ def run_generation(config: dict, lang_codes: list[str], proj_dir: Path, verbose:
         "model": model,
         "conversations": manifest_entries,
     }
-    (data_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False))
+    atomic_write_json(data_dir / "manifest.json", manifest)
 
     return {"generated": generated, "failed": failed, "sample": sample}
 
@@ -151,6 +113,55 @@ def _load_topics(topics_path: Path) -> list[dict]:
     if not topics_path.exists():
         raise FileNotFoundError(f"Topics file not found: {topics_path}. Run 'init' first.")
     return json.loads(topics_path.read_text())
+
+
+def _generation_prompt(persona, lang_name, lang_code, domain, topic, difficulty, turns, north_star, resolution_policy) -> str:
+    return GENERATION_PROMPT.format(
+        user_persona=persona,
+        language_name=lang_name,
+        language_code=lang_code,
+        domain=domain,
+        topic_name=topic["name"],
+        topic_description=topic["description"],
+        topic_id=topic["id"],
+        difficulty=difficulty,
+        num_turns=turns,
+        north_star_name=north_star.get("name", "unknown"),
+        north_star_definition=north_star.get("definition", ""),
+        resolution_policy=json.dumps(resolution_policy, ensure_ascii=False),
+    )
+
+
+def _generate_one(job, writer: str, model: str) -> dict:
+    from eagle_eval.generation_clients import call_generation_model
+
+    conv_id, lang_code, lang_name, topic, difficulty, out_path, prompt = job
+    if out_path.exists():
+        log.info(f"Skipping {conv_id} — already exists")
+        return {"status": "ok", "manifest": _manifest_entry(conv_id, lang_code, topic, out_path)}
+
+    log.info(f"Generating {conv_id} ({lang_name}, {topic['name']}, {difficulty})")
+    conversation = call_generation_model(writer, model, prompt, retries=3)
+    if conversation is None:
+        log.error(f"Failed to generate {conv_id} after 3 retries")
+        return {"status": "failed"}
+
+    conversation.update({
+        "conversation_id": conv_id,
+        "language": lang_code,
+        "language_name": lang_name,
+        "primary_topic": topic["id"],
+        "difficulty_requested": difficulty,
+        "generated_by": model,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+    })
+    atomic_write_json(out_path, conversation)
+    time.sleep(0.5)
+    return {
+        "status": "ok",
+        "manifest": _manifest_entry(conv_id, lang_code, topic, out_path),
+        "sample": {"language": lang_code, "topic": topic["name"], "turns": conversation.get("conversation_turns", [])},
+    }
 
 
 def _assign_topics(topics: list[dict], count: int) -> list[tuple[dict, str]]:

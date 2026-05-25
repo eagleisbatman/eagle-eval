@@ -80,37 +80,15 @@ def run_upload(config: dict, lang_codes: list[str], data_dir: Path,
 
         item_count = 0
         for conv in conversations:
-            turns = conv.get("conversation_turns", [])
-            expected_topics = conv.get("topic_tags", [conv.get("primary_topic", "general")])
-            expected_output = {
-                "expected_topics": expected_topics,
-                "expected_language": lang_code,
-                "min_turns_responded": max(1, int(len(turns) * 0.8)),
-                "scenario": conv.get("scenario"),
-                "expected_next_action": conv.get("expected_next_action"),
-                "required_clarification_slots": conv.get("required_clarification_slots", []),
-                "resolution_goal": conv.get("resolution_goal"),
-            }
-            expected_output.update(conv.get("expected_output") or {})
+            from eagle_eval.local_datasets import conversation_to_dataset_item
+
+            item = conversation_to_dataset_item(lang_code, conv)
 
             lf.create_dataset_item(
                 dataset_name=dataset_name,
-                input={
-                    "language": lang_code,
-                    "conversation_turns": turns,
-                },
-                expected_output=expected_output,
-                metadata={
-                    "language": lang_code,
-                    "language_name": conv.get("language_name", lang_code),
-                    "conversation_id": conv.get("conversation_id", "unknown"),
-                    "primary_topic": conv.get("primary_topic", "general"),
-                    "scenario": conv.get("scenario"),
-                    "expected_next_action": conv.get("expected_next_action"),
-                    "difficulty": conv.get("difficulty_actual", conv.get("difficulty_requested", "medium")),
-                    "quality_score": conv.get("quality_score", None),
-                    "generated_by": conv.get("generated_by", "unknown"),
-                },
+                input=item["input"],
+                expected_output=item["expected_output"],
+                metadata=item["metadata"],
             )
             item_count += 1
             log.debug(f"Uploaded {conv.get('conversation_id')} to {dataset_name}")
@@ -132,7 +110,7 @@ def _load_passed_conversations(lang_dir: Path) -> list[dict]:
     for json_file in sorted(lang_dir.glob("*.json")):
         try:
             conv = json.loads(json_file.read_text())
-            status = conv.get("quality_status", "passed")  # default to passed if no gate was run
+            status = conv.get("quality_status")
             if status in ("passed", "flagged"):  # include flagged — they're borderline, not bad
                 conversations.append(conv)
         except (json.JSONDecodeError, KeyError) as e:

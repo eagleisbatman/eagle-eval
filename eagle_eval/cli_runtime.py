@@ -8,6 +8,8 @@ from pathlib import Path
 
 import click
 
+from eagle_eval.path_safety import validate_language_code
+
 
 def project_dir() -> Path:
     ctx = click.get_current_context(silent=True)
@@ -65,7 +67,10 @@ def resolve_languages(config: dict, lang_arg: str) -> list[str]:
     else:
         resolved = [item.strip().lower() for item in lang_arg.split(",") if item.strip()]
 
-    resolved = dedupe(resolved)
+    try:
+        resolved = [validate_language_code(value) for value in dedupe(resolved)]
+    except ValueError as exc:
+        raise click.ClickException(str(exc)) from exc
     if not resolved:
         raise click.ClickException(f"No languages resolved from '{lang_arg}'.")
     return resolved
@@ -76,9 +81,11 @@ def all_configured_languages(config: dict) -> list[str]:
     if languages_path.exists():
         try:
             payload = json.loads(languages_path.read_text(encoding="utf-8"))
-            return [item["code"] for item in payload if item.get("code")]
+            return [validate_language_code(item["code"]) for item in payload if item.get("code")]
         except (json.JSONDecodeError, TypeError, KeyError) as exc:
             raise click.ClickException(f"Invalid languages file: {languages_path}: {exc}") from exc
+        except ValueError as exc:
+            raise click.ClickException(str(exc)) from exc
 
     from eagle_eval.languages import ALL_LANGUAGES
 
@@ -117,6 +124,20 @@ def parse_json_object(value: str, option_name: str) -> dict:
     if not isinstance(parsed, dict):
         raise click.BadParameter("must be a JSON object", param_hint=option_name)
     return parsed
+
+
+def read_json_file(path: Path, label: str = "JSON file"):
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError as exc:
+        raise click.ClickException(f"{label} not found: {path}") from exc
+    except PermissionError as exc:
+        raise click.ClickException(f"Cannot read {label}: {path}: {exc}") from exc
+    except json.JSONDecodeError as exc:
+        raise click.ClickException(
+            f"Invalid {label}: {path}: {exc.msg} at line {exc.lineno}, column {exc.colno}. "
+            "Repair the JSON or regenerate the file."
+        ) from exc
 
 
 def display_path(path: Path, project_root: Path, home_dir: Path) -> str:

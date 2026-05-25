@@ -5,6 +5,8 @@ import logging
 import time
 from pathlib import Path
 
+from eagle_eval.file_io import atomic_write_json
+
 log = logging.getLogger(__name__)
 
 
@@ -74,7 +76,7 @@ def run_quality_gate(config: dict, data_dir: Path, dry_run: bool = False, verbos
 
         # Write quality score back into the conversation file unless this is a preview.
         if not dry_run:
-            conv_path.write_text(json.dumps(conv, indent=2, ensure_ascii=False))
+            atomic_write_json(conv_path, conv)
 
         log.info(f"{conv_id}: overall={overall:.1f} status={conv['quality_status']}")
         time.sleep(0.3)

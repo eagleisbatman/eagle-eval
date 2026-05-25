@@ -19,7 +19,7 @@ The fastest path for most people right now:
 ```bash
 git clone https://github.com/eagleisbatman/eagle-eval.git
 cd eagle-eval
-python -m pip install -e ".[dev,vertex]"
+python -m pip install -e ".[dev,vertex,bedrock]"
 eagle-eval install-assistants --tool all --scope global --yes
 ```
 

@@ -19,7 +19,7 @@ def using_vertex_env() -> bool:
 
 
 def _client_kwargs(*, use_vertex: bool) -> dict:
-    if not (use_vertex or using_vertex_env()):
+    if not use_vertex:
         return {}
 
     _require_vertex_env()
