@@ -12,7 +12,7 @@ git clone https://github.com/eagleisbatman/eagle-eval.git
 cd eagle-eval
 
 # 2. Install in editable mode with the extras you need
-python -m pip install -e ".[dev,vertex]"
+python -m pip install -e ".[dev,vertex,bedrock]"
 
 # 3. Install the assistant skills (very important)
 eagle-eval install-assistants --tool all --scope global --yes
@@ -33,8 +33,8 @@ This is the path most people should take when they want to evaluate real agents.
 git clone https://github.com/eagleisbatman/eagle-eval.git
 cd eagle-eval
 
-# Install with Vertex AI Gemini (recommended Google path)
-python -m pip install -e ".[dev,vertex]"
+# Install with Vertex AI Gemini (recommended Google path) and Amazon Bedrock Claude
+python -m pip install -e ".[dev,vertex,bedrock]"
 
 # Or install with everything if you experiment a lot
 python -m pip install -e ".[all]"
@@ -62,6 +62,9 @@ python -m pip install -e ".[openai]"
 # Just Anthropic / Claude
 python -m pip install -e ".[anthropic]"
 
+# Amazon Bedrock Claude through AWS
+python -m pip install -e ".[bedrock]"
+
 # Langfuse + Vertex AI Gemini
 python -m pip install -e ".[vertex,langfuse]"
 
@@ -78,21 +81,21 @@ If you don't want to keep a local clone, you can install directly from Git:
 python -m pip install "git+https://github.com/eagleisbatman/eagle-eval.git@main"
 
 # With extras
-python -m pip install "git+https://github.com/eagleisbatman/eagle-eval.git@main#egg=eagle-eval[vertex]"
+python -m pip install "eagle-eval[vertex,bedrock] @ git+https://github.com/eagleisbatman/eagle-eval.git@main"
 ```
 
 **Note:** This method is less convenient for running `install-assistants` globally because the package is not in editable mode.
 
-### 4. Using pipx (Future)
+### 4. Using pipx from Git
 
-Once Eagle Eval is published to PyPI, the best way to install the CLI globally will be:
+Until Eagle Eval is on PyPI, you can still install the CLI globally from Git:
 
 ```bash
-pipx install eagle-eval
-pipx install "eagle-eval[vertex,langfuse]"
+pipx install "eagle-eval[vertex,bedrock] @ git+https://github.com/eagleisbatman/eagle-eval.git@main"
+eagle-eval install-assistants --tool all --scope global --yes
 ```
 
-This keeps it isolated from your project environments. We are not there yet (see "Current Limitations" below).
+This keeps Eagle Eval isolated from your project environments while still making the command and assistant skills available globally.
 
 ---
 
@@ -115,6 +118,24 @@ If you intentionally use the Gemini Developer API key path instead, configure
 ```bash
 GOOGLE_API_KEY=your-gemini-developer-api-key
 ```
+
+## Amazon Bedrock Claude Credentials
+
+Use this path when your Claude access comes through AWS Bedrock. Install the
+Bedrock extra, then store non-secret runtime defaults in project
+`.env.eagle-eval` or global `~/.eagle-eval/.env`:
+
+```bash
+AWS_PROFILE=eagle-bedrock
+AWS_REGION=us-east-1
+AWS_BEDROCK_CLAUDE_MODEL_ID=global.anthropic.claude-sonnet-4-5-20250929-v1:0
+AWS_BEDROCK_CLAUDE_FAST_MODEL_ID=global.anthropic.claude-haiku-4-5-20251001-v1:0
+```
+
+If your environment already has default AWS credentials or an instance role,
+omit `AWS_PROFILE` and keep `AWS_REGION` plus the model id. Configure
+`test_cases.writer: bedrock` or `scoring.scorer: bedrock` in
+`eval_config.yaml`.
 
 Eagle Eval automatically loads env files in this order:
 
@@ -153,7 +174,7 @@ As of version 0.2.0, Eagle Eval has these installation realities:
 - It is **not yet published** to PyPI.
 - You must install it from source (or git) for now.
 - The cleanest experience is still cloning the repo once and using editable installs.
-- `pipx` does not work yet.
+- `pipx` works from Git, but there is no short PyPI install command yet.
 
 This is acceptable while you're testing whether the tool actually provides value on your real agents. Once you decide it's worth using long-term, we can prioritize a proper PyPI release.
 

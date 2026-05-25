@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Detailed Multi-Agent & Sequential Workflows with full concrete example for orchestrators + async workers
 - Major DX improvements for coding-agent driven workflows (the intended primary usage mode).
 - Significantly better error messages and post-`init` guidance.
+- Amazon Bedrock Claude support for test-case writing, model scoring, and quality review via `boto3`.
 
 ### Changed
 - `init --minimal` now generates much smarter, agent-friendly starter configs with excellent inline guidance.

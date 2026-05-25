@@ -6,6 +6,8 @@ def test_normalize_provider_aliases():
     assert normalize_provider("google-gemini", "unused") == "vertex"
     assert normalize_provider("google-vertex", "unused") == "vertex"
     assert normalize_provider("vertex-ai", "unused") == "vertex"
+    assert normalize_provider("aws-bedrock", "unused") == "bedrock"
+    assert normalize_provider("bedrock-claude", "unused") == "bedrock"
     assert normalize_provider("gpt", "unused") == "openai"
     assert normalize_provider("claude", "unused") == "anthropic"
     assert normalize_provider("anthropic", "unused") == "anthropic"
@@ -13,6 +15,7 @@ def test_normalize_provider_aliases():
 
 def test_normalize_provider_infers_from_model_when_missing():
     assert normalize_provider(None, "gemini-3.1-pro") == "vertex"
+    assert normalize_provider(None, "global.anthropic.claude-sonnet-4-5-20250929-v1:0") == "bedrock"
     assert normalize_provider(None, "claude-sonnet-4-5") == "anthropic"
     assert normalize_provider(None, "gpt-4.1-mini") == "openai"
     assert normalize_provider(None, "o4-mini") == "openai"
@@ -21,5 +24,6 @@ def test_normalize_provider_infers_from_model_when_missing():
 
 def test_infer_provider_is_single_canonical_mapping():
     assert infer_provider("gemini-2.0-flash") == "vertex"
+    assert infer_provider("us.anthropic.claude-haiku-4-5-20251001-v1:0") == "bedrock"
     assert infer_provider("claude-haiku-4-5") == "anthropic"
     assert infer_provider("gpt-5.4") == "openai"

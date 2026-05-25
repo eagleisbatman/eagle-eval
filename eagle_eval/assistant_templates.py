@@ -12,7 +12,7 @@ Use Eagle Eval when the user asks to create, check, run, compare, or explain age
 - Run `eagle-eval services --verbose` before paid APIs or hosted result storage so the exact configured services are visible.
 - Run `eagle-eval context view` before judging quality so the app use case and North Star are visible.
 - Use `eagle-eval generate --dry-run`, `eagle-eval gate --dry-run`, or `eagle-eval run --dry-run` before commands that call paid APIs or a real agent.
-- Store service keys in project `.env.eagle-eval` or global `~/.eagle-eval/.env`; Vertex AI Gemini is the Google default, and `GOOGLE_API_KEY` is only for the explicit Gemini Developer API path.
+- Store service keys in project `.env.eagle-eval` or global `~/.eagle-eval/.env`; Vertex AI Gemini is the Google default, Amazon Bedrock Claude uses AWS profile/region/model env, and `GOOGLE_API_KEY` is only for the explicit Gemini Developer API path.
 - Never overwrite generated data unless the user asks for it.
 
 ## Eval Flow
@@ -72,7 +72,7 @@ Use `~/.eagle-eval/.env` only for machine-wide defaults the user wants across pr
 Make sure `.env.eagle-eval` is ignored by git. Store service names and models in `eval_config.yaml`, not secrets.
 Prefer Vertex AI Gemini for Google-backed writing/scoring:
 `GOOGLE_GENAI_USE_VERTEXAI=true`, `GOOGLE_CLOUD_PROJECT`, and `GOOGLE_CLOUD_LOCATION`.
-Use `GOOGLE_API_KEY` only when the config explicitly selects the Gemini Developer API path.
+Use `GOOGLE_API_KEY` only when the config explicitly selects the Gemini Developer API path; use `AWS_PROFILE`, `AWS_REGION`, and `AWS_BEDROCK_CLAUDE_MODEL_ID` for Amazon Bedrock Claude.
 Use `eagle-eval services --verbose` and `eagle-eval doctor` to report set/missing state without revealing values.
 
 ## Commands
@@ -123,11 +123,11 @@ Key terms:
 - Custom metric: a developer-owned scorer declared in `scoring.custom_metrics`.
 - Agent wrapper: the SDK-neutral `run_conversation(messages, language, prompt_versions=None)` function Eagle Eval imports.
 
-Google provider default:
-- Use Vertex AI Gemini for Google-backed writing/scoring.
+Provider defaults:
+- Use Vertex AI Gemini for Google-backed writing/scoring; use Amazon Bedrock Claude when AWS is the Claude access path.
 - Required env: `GOOGLE_GENAI_USE_VERTEXAI=true`, `GOOGLE_CLOUD_PROJECT`, and `GOOGLE_CLOUD_LOCATION`.
 - Store credentials in project `.env.eagle-eval` or global `~/.eagle-eval/.env`.
-- Use `GOOGLE_API_KEY` only when `eval_config.yaml` explicitly selects the Gemini Developer API path.
+- Use `GOOGLE_API_KEY` only when `eval_config.yaml` explicitly selects the Gemini Developer API path; use `AWS_PROFILE`, `AWS_REGION`, and `AWS_BEDROCK_CLAUDE_MODEL_ID` for Bedrock.
 
 Prefer dry runs before commands that call paid APIs or external services.
 """
@@ -160,7 +160,7 @@ Safe credential handling:
 - Store service names and models in `eval_config.yaml`, not secrets.
 - Prefer Vertex AI Gemini for Google-backed writing/scoring:
   `GOOGLE_GENAI_USE_VERTEXAI=true`, `GOOGLE_CLOUD_PROJECT`, and `GOOGLE_CLOUD_LOCATION`.
-- Use `GOOGLE_API_KEY` only when the config explicitly selects the Gemini Developer API path.
+- Use `GOOGLE_API_KEY` only when the config explicitly selects the Gemini Developer API path; use `AWS_PROFILE`, `AWS_REGION`, and `AWS_BEDROCK_CLAUDE_MODEL_ID` for Amazon Bedrock Claude.
 - Use `eagle-eval services --verbose` and `eagle-eval doctor` to report set/missing state without revealing values.
 
 Commands:

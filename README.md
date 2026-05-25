@@ -6,7 +6,7 @@ Eagle Eval is a local-first CLI that generates realistic, goal-aware test cases,
 
 It is designed primarily to be driven by coding agents (Claude Code, Codex, Grok Build) rather than used as a heavy manual tool.
 
-Local JSON + Markdown reports are the excellent default. Langfuse is the first supported hosted destination. Other services remain active design targets.
+Local JSON + Markdown reports are the excellent default. Langfuse is the first supported hosted result destination. Vertex AI Gemini, Amazon Bedrock Claude, optional Gemini Developer API, OpenAI, and direct Claude are active writer/scorer services.
 
 ## Getting Started & Tutorials
 
@@ -49,11 +49,11 @@ This is the mental model used across the major eval tools: Langfuse describes ev
 
 | Role | Meaning | Common choices |
 | --- | --- | --- |
-| Test-case writer | The model service that writes realistic user conversations for your domain and languages. | Vertex AI Gemini by default; OpenAI or Claude for narrower language sets or adversarial case writing. |
-| Scorer | The code or stronger model that grades your agent's answers. | Deterministic checks plus Vertex AI Gemini, optional Gemini Developer API, OpenAI, or Claude. Use a stronger model than the agent when possible. |
+| Test-case writer | The model service that writes realistic user conversations for your domain and languages. | Vertex AI Gemini by default; Amazon Bedrock Claude, OpenAI, or direct Claude for narrower language sets or adversarial case writing. |
+| Scorer | The code or stronger model that grades your agent's answers. | Deterministic checks plus Vertex AI Gemini, Amazon Bedrock Claude, optional Gemini Developer API, OpenAI, or direct Claude. Use a stronger model than the agent when possible. |
 | Result destination | Where Eagle Eval stores datasets, run output, score summaries, and debug context. | Local files by default; Langfuse for hosted review; LangSmith, OpenAI Evals, Vertex AI Gemini, and Claude workflows are being prepared. |
 
-Vertex AI Gemini is the default for broad multilingual case writing and scoring. OpenAI and Claude are valid choices when their language coverage fits the eval set or when you want a second opinion from a different model family.
+Vertex AI Gemini is the default for broad multilingual case writing and scoring. Amazon Bedrock Claude, OpenAI, and direct Claude are valid choices when their language coverage fits the eval set or when you want a second opinion from a different model family.
 
 ## Scoring
 
@@ -86,7 +86,7 @@ Supporting scores help explain failures and regressions:
 - `response_quality`: 0 to 1, model-scored
 - `pass_rate`: 0 to 1 aggregate
 
-Local runs use deterministic built-ins and custom scorers by default. Set `results.local.include_model_scorers: true` when you want local runs to call the configured Vertex AI Gemini, optional Gemini Developer API, OpenAI, or Claude scorer model for model-judged supporting metrics.
+Local runs use deterministic built-ins and custom scorers by default. Set `results.local.include_model_scorers: true` when you want local runs to call the configured Vertex AI Gemini, Amazon Bedrock Claude, optional Gemini Developer API, OpenAI, or direct Claude scorer model for model-judged supporting metrics.
 
 OpenAI's grader guidance also uses 0 to 1 grades, Langfuse supports numeric, categorical, boolean, and text scores, LangSmith evaluator feedback contains a metric key plus score/value and optional comment, Vertex AI supports model-based and computation-based metrics, and Claude recommends code-based, human, and LLM-based grading depending on reliability needs.
 
@@ -189,7 +189,7 @@ See the full [Installation Guide](docs/installation.md) for practical instructio
 ```bash
 git clone https://github.com/eagleisbatman/eagle-eval.git
 cd eagle-eval
-python -m pip install -e ".[dev,vertex]"
+python -m pip install -e ".[dev,vertex,bedrock]"
 eagle-eval install-assistants --tool all --scope global --yes
 ```
 
@@ -344,15 +344,21 @@ GOOGLE_GENAI_USE_VERTEXAI=true
 GOOGLE_CLOUD_PROJECT=your-gcp-project
 GOOGLE_CLOUD_LOCATION=us-central1
 LANGFUSE_PUBLIC_KEY=pk-...
-LANGFUSE_SECRET_KEY=sk-...
+LANGFUSE_SECRET_KEY=your-langfuse-secret-key
 LANGFUSE_HOST=https://cloud.langfuse.com
 OPENAI_API_KEY=...
 ANTHROPIC_API_KEY=...
+AWS_PROFILE=eagle-bedrock
+AWS_REGION=us-east-1
+AWS_BEDROCK_CLAUDE_MODEL_ID=global.anthropic.claude-sonnet-4-5-20250929-v1:0
 LANGSMITH_API_KEY=...
 ```
 
 Use `GOOGLE_API_KEY` only when you deliberately configure the optional Gemini
 Developer API path with `test_cases.writer: gemini` or `scoring.scorer: gemini`.
+Use `AWS_PROFILE` when you want Eagle Eval to use a named AWS profile. If you
+already use default AWS credentials or an instance role, keep the region and
+model id but omit the profile.
 Run `eagle-eval doctor --verbose` or `eagle-eval services --verbose` to see
 which env files were loaded without printing secret values.
 
@@ -458,7 +464,7 @@ results:
     include_model_scorers: false
 ```
 
-Your agent can use one model, the test-case writer can use another, and the scorer should usually be stronger than the agent model.
+Your agent can use one model, the test-case writer can use another, and the scorer should usually be stronger than the agent model. For Bedrock, set `test_cases.writer: bedrock` or `scoring.scorer: bedrock`, then use an Amazon Bedrock Claude model id such as `global.anthropic.claude-sonnet-4-5-20250929-v1:0`.
 
 ## Update
 
@@ -496,6 +502,7 @@ eagle-eval update
 - [OpenAI agent evals](https://developers.openai.com/api/docs/guides/agent-evals)
 - [OpenAI graders](https://developers.openai.com/api/docs/guides/graders)
 - [Google Gen AI SDK on Vertex AI](https://cloud.google.com/vertex-ai/generative-ai/docs/sdks/overview)
+- [Amazon Bedrock InvokeModel](https://docs.aws.amazon.com/bedrock/latest/userguide/inference-invoke.html)
 - [Claude evaluation tool](https://platform.claude.com/docs/en/test-and-evaluate/eval-tool)
 - [Claude eval design principles](https://platform.claude.com/docs/en/test-and-evaluate/develop-tests)
 
@@ -517,7 +524,7 @@ This repo should stay private until the integrations have been exercised with re
 Before making it public:
 
 - verify Gemini test-case writing and scoring end to end
-- verify OpenAI and Claude writing/scoring paths on representative language subsets
+- verify Amazon Bedrock Claude, OpenAI, and direct Claude writing/scoring paths on representative language subsets
 - verify the Twitter/X content agent in live mode with Google ADK, OpenAI Agents SDK, and Claude SDK credentials
 - verify Langfuse upload/run/status behavior with live credentials
 - verify LangSmith, OpenAI Evals, Vertex AI Gemini, optional Gemini Developer API, and Claude workflows

@@ -20,10 +20,13 @@ def test_install_assistants_writes_codex_and_claude_helpers(tmp_path):
         assert "Test-case writer" in agents_text
         assert ".env.eagle-eval" in agents_text
         assert "Vertex AI Gemini" in agents_text
+        assert "Amazon Bedrock Claude" in agents_text
         assert "Codex is the interface" in codex_skill
         assert ".env.eagle-eval" in codex_skill
+        assert "Amazon Bedrock Claude" in codex_skill
         assert "eagle-eval doctor" in claude_skill
         assert ".env.eagle-eval" in claude_skill
+        assert "Amazon Bedrock Claude" in claude_skill
 
 
 def test_install_assistants_can_install_only_codex_project_skill(tmp_path):

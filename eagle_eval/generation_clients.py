@@ -6,6 +6,7 @@ import json
 import logging
 import time
 
+from eagle_eval.bedrock_client import generate_text as generate_bedrock_text
 from eagle_eval.google_genai_client import generate_text
 from eagle_eval.providers import normalize_provider
 
@@ -13,17 +14,19 @@ log = logging.getLogger(__name__)
 
 
 def call_generation_model(provider: str, model: str, prompt: str, retries: int = 3) -> dict | None:
-    """Call the generation model. Supports Vertex AI Gemini, OpenAI, and Anthropic."""
+    """Call the generation model. Supports Vertex AI Gemini, Bedrock, OpenAI, and Anthropic."""
     provider = normalize_provider(provider, model)
     for attempt in range(retries):
         try:
             if provider in {"gemini", "vertex"}:
                 return _call_google(model, prompt, use_vertex=provider == "vertex")
+            if provider == "bedrock":
+                return _call_bedrock(model, prompt)
             if provider == "openai":
                 return _call_openai(model, prompt)
             if provider == "anthropic":
                 return _call_anthropic(model, prompt)
-            raise ValueError(f"Unsupported test-case writer: {provider}. Use vertex, gemini, openai, or anthropic.")
+            raise ValueError(f"Unsupported test-case writer: {provider}. Use vertex, bedrock, gemini, openai, or anthropic.")
         except json.JSONDecodeError as exc:
             log.warning(f"JSON parse error on attempt {attempt + 1}: {exc}")
             time.sleep(2 ** attempt)
@@ -35,6 +38,10 @@ def call_generation_model(provider: str, model: str, prompt: str, retries: int =
 
 def _call_google(model: str, prompt: str, *, use_vertex: bool) -> dict:
     return _parse_json_response(generate_text(model, prompt, use_vertex=use_vertex))
+
+
+def _call_bedrock(model: str, prompt: str) -> dict:
+    return _parse_json_response(generate_bedrock_text(model, prompt))
 
 
 def _call_openai(model: str, prompt: str) -> dict:

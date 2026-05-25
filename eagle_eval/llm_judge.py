@@ -7,6 +7,7 @@ import logging
 import random
 import time
 
+from eagle_eval.bedrock_client import generate_text as generate_bedrock_text
 from eagle_eval.google_genai_client import generate_text
 from eagle_eval.providers import normalize_provider
 
@@ -20,6 +21,8 @@ def judge_response(prompt: str, scorer: str | None, scorer_model: str, retries: 
         try:
             if provider in {"gemini", "vertex"}:
                 text = _call_google(prompt, scorer_model, use_vertex=provider == "vertex")
+            elif provider == "bedrock":
+                text = _call_bedrock(prompt, scorer_model)
             elif provider == "openai":
                 text = _call_openai(prompt, scorer_model)
             elif provider == "anthropic":
@@ -43,6 +46,10 @@ def retry_delay(attempt: int, base_seconds: float = 1.0, max_seconds: float = 30
 
 def _call_google(prompt: str, scorer_model: str, *, use_vertex: bool) -> str:
     return generate_text(scorer_model, prompt, use_vertex=use_vertex)
+
+
+def _call_bedrock(prompt: str, scorer_model: str) -> str:
+    return generate_bedrock_text(scorer_model, prompt, max_tokens=1024)
 
 
 def _call_openai(prompt: str, scorer_model: str) -> str:

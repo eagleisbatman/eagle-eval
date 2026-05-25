@@ -52,6 +52,7 @@ def test_services_loads_project_eagle_eval_env(tmp_path, monkeypatch):
 
     for name in ("GOOGLE_GENAI_USE_VERTEXAI", "GOOGLE_CLOUD_PROJECT", "GOOGLE_CLOUD_LOCATION"):
         monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
     monkeypatch.setattr(integrations, "_has_package", lambda package: True)
 
     runner = CliRunner()

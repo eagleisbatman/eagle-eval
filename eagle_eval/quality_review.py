@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 
+from eagle_eval.bedrock_client import generate_text as generate_bedrock_text
 from eagle_eval.google_genai_client import generate_text
 from eagle_eval.providers import normalize_provider
 
@@ -18,6 +19,8 @@ def review_conversation(conv: dict, provider: str, model: str, domain: str, pers
         provider = normalize_provider(provider, model)
         if provider in {"gemini", "vertex"}:
             return _call_google_judge(model, prompt, use_vertex=provider == "vertex")
+        if provider == "bedrock":
+            return _call_bedrock_judge(model, prompt)
         if provider == "openai":
             return _call_openai_judge(model, prompt)
         if provider == "anthropic":
@@ -51,6 +54,10 @@ Respond with ONLY this JSON, no markdown fences:
 
 def _call_google_judge(model: str, prompt: str, *, use_vertex: bool) -> dict:
     return _parse_judge_response(generate_text(model, prompt, use_vertex=use_vertex))
+
+
+def _call_bedrock_judge(model: str, prompt: str) -> dict:
+    return _parse_judge_response(generate_bedrock_text(model, prompt, max_tokens=1024))
 
 
 def _call_openai_judge(model: str, prompt: str) -> dict:

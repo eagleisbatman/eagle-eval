@@ -1,11 +1,11 @@
 # Eagle Eval
 
-This project provides the Eagle Eval CLI for local-first agent evaluation. Local JSON/Markdown results are the default; Langfuse is the first hosted results service; LangSmith, OpenAI Evals, Vertex AI Gemini, optional Gemini Developer API, and Claude workflows are active design targets.
+This project provides the Eagle Eval CLI for local-first agent evaluation. Local JSON/Markdown results are the default; Langfuse is the first hosted results service; Vertex AI Gemini, Amazon Bedrock Claude, optional Gemini Developer API, OpenAI, and direct Claude are active writer/scorer services.
 
 ## Setup
 
 ```bash
-cd eagle-eval && python -m pip install -e ".[dev,vertex]"
+cd eagle-eval && python -m pip install -e ".[dev,vertex,bedrock]"
 eagle-eval init
 eagle-eval doctor
 eagle-eval services --verbose
@@ -45,7 +45,7 @@ Every command has `--help`. All config lives in `eval_config.yaml`. All commands
 - Vertex AI Gemini is the default broad multilingual test-case writer and scorer.
 - `GOOGLE_API_KEY` is only for the optional Gemini Developer API path.
 - Prefer `.env.eagle-eval` in the evaluated project or `~/.eagle-eval/.env` globally for credentials. Do not rely on shell exports.
-- OpenAI and Claude are valid writer/scorer services where their language coverage fits the target eval set.
+- OpenAI, direct Claude, and Amazon Bedrock Claude are valid writer/scorer services where their language coverage fits the target eval set.
 - Braintrust, Phoenix, and Promptfoo are deferred items only for now.
 - The `run` command imports and calls the actual agent defined in config. The agent must be importable from wherever this runs.
 - Updates run through `python -m pip install --upgrade`; set `updates.source` to a GitHub `git+https://...@branch` URL for push-to-update workflows.

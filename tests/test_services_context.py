@@ -75,6 +75,32 @@ def test_services_json_normalizes_anthropic_to_claude(tmp_path, monkeypatch):
         assert payload[2]["ready"] is True
 
 
+def test_services_json_supports_bedrock_writer_and_scorer(tmp_path, monkeypatch):
+    import eagle_eval.integrations as integrations
+
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        write_config(Path("eval_config.yaml"))
+        config_path = Path("eval_config.yaml")
+        config_path.write_text(
+            config_path.read_text()
+            .replace("  writer: vertex", "  writer: bedrock")
+            .replace("  writer_model: gemini-2.0-flash", "  writer_model: global.anthropic.claude-haiku-4-5-20251001-v1:0")
+            .replace("  scorer: vertex", "  scorer: claude-bedrock")
+            .replace("  scorer_model: gemini-3.1-pro", "  scorer_model: global.anthropic.claude-sonnet-4-5-20250929-v1:0")
+        )
+        monkeypatch.setattr(integrations, "_has_package", lambda package: package == "boto3")
+        monkeypatch.setenv("AWS_REGION", "us-east-1")
+        result = runner.invoke(cli, ["services", "--json-output"])
+        assert result.exit_code == 0, result.output
+        payload = json.loads(result.output)
+        assert payload[0]["service"] == "bedrock"
+        assert payload[0]["label"] == "Amazon Bedrock Claude"
+        assert payload[0]["ready"] is True
+        assert payload[1]["service"] == "bedrock"
+        assert payload[1]["ready"] is True
+
+
 def test_context_view_prints_app_context(tmp_path):
     runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=tmp_path):

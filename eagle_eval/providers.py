@@ -7,6 +7,10 @@ PROVIDER_ALIASES = {
     "vertex": "vertex",
     "vertexai": "vertex",
     "vertex-ai": "vertex",
+    "aws-bedrock": "bedrock",
+    "bedrock": "bedrock",
+    "bedrock-claude": "bedrock",
+    "claude-bedrock": "bedrock",
     "claude": "anthropic",
     "anthropic": "anthropic",
     "openai": "openai",
@@ -21,6 +25,8 @@ def normalize_provider(provider: str | None, model: str) -> str:
 
 def infer_provider(model: str) -> str:
     model = model.lower()
+    if "anthropic.claude" in model:
+        return "bedrock"
     if "gemini" in model:
         return "vertex"
     if "claude" in model:

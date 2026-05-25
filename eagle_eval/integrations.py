@@ -132,6 +132,8 @@ def _configured_roles(config: dict) -> list[dict[str, Any]]:
 
 def _infer_service_from_model(model: str) -> str:
     model = model.lower()
+    if "anthropic.claude" in model:
+        return "bedrock"
     if "gemini" in model:
         return "vertex"
     if "claude" in model:
