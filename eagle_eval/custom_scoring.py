@@ -122,13 +122,18 @@ def _normalize_result(metric_name: str, result: Any) -> Evaluation:
     if isinstance(result, dict):
         name = result.get("name") or metric_name
         value = result.get("value", result.get("score"))
-        if value is None:
-            raise ValueError(f"Custom metric '{metric_name}' must return value or score")
         comment = result.get("comment") or result.get("reasoning") or ""
         details = result.get("details")
         if details:
             comment = f"{comment} details={details}" if comment else f"details={details}"
-        return Evaluation(name=name, value=float(value), comment=str(comment))
+        # value=None is a deliberate "not applicable to this item" signal (the
+        # scorer's precondition wasn't met). Record it as a skipped evaluation —
+        # the run scorer excludes None from aggregation — instead of an error row.
+        return Evaluation(
+            name=name,
+            value=None if value is None else float(value),
+            comment=str(comment),
+        )
 
     raise TypeError(
         f"Custom metric '{metric_name}' must return Evaluation, dict, bool, int, or float"

@@ -100,6 +100,7 @@ def conversation_to_dataset_item(lang_code: str, conv: dict) -> dict:
         "expected_next_action": conv.get("expected_next_action"),
         "required_clarification_slots": conv.get("required_clarification_slots", []),
         "resolution_goal": conv.get("resolution_goal"),
+        "expected_chips": conv.get("expected_chips"),
     }
     expected_output.update(conv.get("expected_output") or {})
     return {
