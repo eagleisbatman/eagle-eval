@@ -58,3 +58,23 @@ def test_goal_summary_reports_mean_distinct_from_pass_rate():
     assert bucket["mean"] == 0.6
     assert bucket["rate"] == round(1 / 3, 3)
     assert bucket["mean"] != bucket["rate"], "continuous metric: mean and pass-rate must both be visible"
+
+
+def test_response_completeness_clamps_to_one():
+    # A chip-tapping agent emits more responses than scripted turns; the ratio
+    # must not exceed 1.0 (was 2.117 on a real run and read as 211% complete).
+    ev = evaluators.response_completeness(
+        input={"conversation_turns": [{"role": "user", "content": "q"}]},
+        output={"responses": ["a", "b", "c", "d"]},
+        expected_output={},
+    )
+    assert ev.value == 1.0, "4 responses / 1 scripted turn must clamp to 1.0, not 4.0"
+
+
+def test_response_completeness_partial_below_one():
+    ev = evaluators.response_completeness(
+        input={"conversation_turns": [{}, {}, {}, {}]},
+        output={"responses": ["a", "b"]},
+        expected_output={},
+    )
+    assert ev.value == 0.5, "2 of 4 turns answered stays a true fraction"

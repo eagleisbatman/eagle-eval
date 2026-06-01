@@ -68,8 +68,8 @@ def response_completeness(*, input, output, expected_output, **kwargs):
     total = len(input.get("conversation_turns", []))
     responses = output.get("responses", []) if isinstance(output, dict) else []
     responded = sum(1 for r in responses if r and str(r).strip())
-
-    ratio = responded / total if total else 0
+    # Clamp: chip-reply turns make `responded` exceed scripted `total` (not >100%).
+    ratio = min(responded / total, 1.0) if total else 0
     return Evaluation(
         name="response_completeness",
         value=round(ratio, 3),
