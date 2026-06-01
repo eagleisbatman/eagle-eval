@@ -17,7 +17,7 @@ def markdown_report(report: dict) -> str:
         "",
         "## Scores",
         "",
-        "| Language | Metric | Score |",
+        "| Language | Metric | Mean |",
         "| --- | --- | ---: |",
     ]
     for language, scores in report["scores"].items():
@@ -46,11 +46,11 @@ def _goal_summary_lines(summary: dict) -> list[str]:
     judge = summary.get("goal_achievement_judge", {})
     action = summary.get("next_action_match", {})
     lines = [
-        f"- Goal achievement: `{goal.get('met', 0)}/{goal.get('scored', 0)}` ({_rate(goal)})",
-        f"- Next-action match: `{action.get('matched', 0)}/{action.get('scored', 0)}` ({_rate(action)})",
+        f"- Goal achievement: {_stat(goal, 'met')}",
+        f"- Next-action match: {_stat(action, 'matched')}",
     ]
     if judge.get("scored"):
-        lines.append(f"- Model-judged goal achievement: `{judge.get('met', 0)}/{judge.get('scored', 0)}` ({_rate(judge)})")
+        lines.append(f"- Model-judged goal achievement: {_stat(judge, 'met')}")
     if summary.get("scenarios"):
         lines.extend(["", "| Scenario | Items | Goals Met | Next Actions Matched |", "| --- | ---: | ---: | ---: |"])
         for scenario, data in sorted(summary["scenarios"].items()):
@@ -70,3 +70,9 @@ def _goal_summary_lines(summary: dict) -> list[str]:
 def _rate(bucket: dict) -> str:
     rate = bucket.get("rate")
     return "n/a" if rate is None else f"{rate * 100:.0f}%"
+
+
+def _stat(bucket: dict, positive_key: str) -> str:
+    mean = bucket.get("mean")
+    mean_text = "n/a" if mean is None else f"{mean:.3f}"
+    return f"mean `{mean_text}` · `{bucket.get(positive_key, 0)}/{bucket.get('scored', 0)}` ≥0.5 ({_rate(bucket)})"

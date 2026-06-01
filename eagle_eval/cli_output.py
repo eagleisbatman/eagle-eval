@@ -68,7 +68,7 @@ def print_results_table(results: dict):
         for lang, scores in results.get("scores", {}).items()
         for metric, value in scores.items()
     ]
-    log(tabulate(rows, headers=["Language", "Metric", "Score"], tablefmt=_table_format()))
+    log(tabulate(rows, headers=["Language", "Metric", "Mean"], tablefmt=_table_format()))
 
 
 def _print_goal_summary(summary: dict):
@@ -78,11 +78,11 @@ def _print_goal_summary(summary: dict):
     judge = summary.get("goal_achievement_judge", {})
     action = summary.get("next_action_match", {})
     if goal.get("scored"):
-        log(f"  Goal achievement: {goal.get('met', 0)}/{goal['scored']} ({_rate(goal)})", bold=True)
+        log(f"  Goal achievement: {_stat(goal, 'met')}", bold=True)
     if judge.get("scored"):
-        log(f"  Model-judged goal achievement: {judge.get('met', 0)}/{judge['scored']} ({_rate(judge)})")
+        log(f"  Model-judged goal achievement: {_stat(judge, 'met')}")
     if action.get("scored"):
-        log(f"  Next-action match: {action.get('matched', 0)}/{action['scored']} ({_rate(action)})")
+        log(f"  Next-action match: {_stat(action, 'matched')}")
     if summary.get("failed_cases"):
         warn(f"Goal failures: {len(summary['failed_cases'])} case(s)")
 
@@ -90,6 +90,12 @@ def _print_goal_summary(summary: dict):
 def _rate(bucket: dict) -> str:
     rate = bucket.get("rate")
     return "n/a" if rate is None else f"{rate * 100:.0f}%"
+
+
+def _stat(bucket: dict, positive_key: str) -> str:
+    mean = bucket.get("mean")
+    mean_text = "n/a" if mean is None else f"{mean:.3f}"
+    return f"mean {mean_text} · {bucket.get(positive_key, 0)}/{bucket.get('scored', 0)} ≥0.5 ({_rate(bucket)})"
 
 
 def print_local_result_paths(results: dict):

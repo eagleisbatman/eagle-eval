@@ -1,6 +1,7 @@
 """Evaluators for agent experiments. Each returns an Evaluation-compatible object."""
 
 import json
+import logging
 import threading
 
 from eagle_eval.evaluation_types import Evaluation
@@ -9,6 +10,7 @@ from eagle_eval.goal_judge import configure_goal_judge, goal_achievement_judge
 from eagle_eval.llm_judge import judge_response
 from eagle_eval.providers import infer_provider
 
+logger = logging.getLogger(__name__)
 _SCORER_MODEL = None
 _SCORER = None
 _DOMAIN = None
@@ -177,18 +179,20 @@ RUN_EVALUATORS = [avg_language_consistency, avg_response_quality, pass_rate]
 
 def get_item_evaluators(include_model_scorers: bool = True) -> list:
     built_ins = ITEM_EVALUATORS if include_model_scorers else DETERMINISTIC_ITEM_EVALUATORS
-    return [*built_ins, *_CUSTOM_EVALUATORS]
+    # A custom metric replaces a builtin of the same name; else both emit that name and
+    # the per-item dict (keeps last) and goal summary (reads first) silently disagree.
+    custom_names = {getattr(ev, "__name__", None) for ev in _CUSTOM_EVALUATORS}
+    shadowed = sorted(n for n in custom_names if n in {getattr(ev, "__name__", None) for ev in built_ins})
+    if shadowed:
+        logger.warning("Custom metrics override builtins: %s", ", ".join(shadowed))
+    return [ev for ev in built_ins if getattr(ev, "__name__", None) not in custom_names] + _CUSTOM_EVALUATORS
 
 
 def _context_summary() -> str:
     if not _APP_CONTEXT:
         return "No app context configured."
-    summary = {
-        "product": _APP_CONTEXT.get("product"),
-        "user": _APP_CONTEXT.get("user"),
-        "north_star": _APP_CONTEXT.get("north_star"),
-        "resolution_policy": _APP_CONTEXT.get("resolution_policy"),
-    }
+    keys = ("product", "user", "north_star", "resolution_policy")
+    summary = {key: _APP_CONTEXT.get(key) for key in keys}
     return json.dumps(summary, ensure_ascii=False, indent=2)
 
 

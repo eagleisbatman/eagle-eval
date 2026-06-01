@@ -38,6 +38,7 @@ def _record_metric(summary: dict, scenario: str, metric: str, positive_key: str,
         if value is None:
             continue
         bucket["scored"] += 1
+        bucket["value_sum"] += value
         if value >= 0.5:
             bucket[positive_key] += 1
 
@@ -73,11 +74,17 @@ def _ensure_scenario(summary: dict, scenario: str):
 
 
 def _metric_bucket(positive_key: str) -> dict:
-    return {"scored": 0, positive_key: 0, "rate": None}
+    # rate = fraction of scored items with value >= 0.5 (a pass-rate);
+    # mean = arithmetic mean of the values. They differ for continuous metrics
+    # (e.g. a model judge), so both are kept and shown side by side.
+    return {"scored": 0, positive_key: 0, "value_sum": 0.0, "rate": None, "mean": None}
 
 
 def _finalize(bucket: dict, positive_key: str):
-    bucket["rate"] = round(bucket[positive_key] / bucket["scored"], 3) if bucket["scored"] else None
+    if not bucket["scored"]:
+        return
+    bucket["rate"] = round(bucket[positive_key] / bucket["scored"], 3)
+    bucket["mean"] = round(bucket["value_sum"] / bucket["scored"], 3)
 
 
 def _scenario(item: dict) -> str:

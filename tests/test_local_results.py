@@ -75,7 +75,7 @@ def test_local_run_writes_json_and_markdown_reports(tmp_path):
         (data_dir / "en_conv_01.json").write_text(json.dumps(_conversation()))
         result = runner.invoke(cli, ["run", "--languages", "en", "--max-concurrency", "2"])
         assert result.exit_code == 0, result.output
-        assert "Goal achievement: 1/1" in result.output
+        assert "Goal achievement: mean 1.000 · 1/1 ≥0.5 (100%)" in result.output
         assert "Local reports" in result.output
         run_files = sorted(Path("data/results/runs").glob("*.json"))
         markdown_files = sorted(Path("data/results/runs").glob("*.md"))
@@ -92,7 +92,7 @@ def test_local_run_writes_json_and_markdown_reports(tmp_path):
         assert report["scores"]["en"]["next_action_match"] == 1.0
         markdown = markdown_files[0].read_text()
         assert "## Goal Summary" in markdown
-        assert "Goal achievement: `1/1`" in markdown
+        assert "Goal achievement: mean `1.000` · `1/1` ≥0.5 (100%)" in markdown
         assert any(evaluation["name"] == "farmer_query_resolution" for evaluation in report["items"][0]["evaluations"])
 
 
