@@ -107,7 +107,8 @@ def test_local_run_records_item_failure_and_writes_report(tmp_path):
         data_dir.mkdir(parents=True)
         (data_dir / "en_conv_01.json").write_text(json.dumps(_conversation()))
         result = runner.invoke(cli, ["run", "--languages", "en"])
-        assert result.exit_code == 0, result.output
+        assert result.exit_code == 1, result.output
+        assert "RUN FAILED: every item errored" in result.output
 
         report = json.loads(next(Path("data/results/runs").glob("*.json")).read_text())
         assert report["items"][0]["output"]["error"] == "agent exploded"

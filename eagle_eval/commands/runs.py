@@ -8,6 +8,7 @@ import click
 
 from eagle_eval.cli_output import err, heading, log, ok, print_comparison_table, print_local_result_paths, print_results_table, warn
 from eagle_eval.cli_runtime import load_config, parse_json_object, project_dir, resolve_languages
+from eagle_eval.run_health import report_run_errors
 from eagle_eval.targets import apply_target
 
 
@@ -63,6 +64,8 @@ def run(languages, prompt_versions, agent_module, agent_function, target, run_pr
     heading("Results")
     print_results_table(results)
     print_local_result_paths(results)
+    if report_run_errors(results):
+        sys.exit(1)
 
 
 @click.command()
